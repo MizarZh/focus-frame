@@ -1,4 +1,3 @@
-import sys
 from PyQt5.QtWidgets import (
     QApplication,
     QMainWindow,
@@ -11,54 +10,8 @@ from PyQt5.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
     QSpinBox,
-    QMessageBox,
 )
-from PyQt5.QtGui import QColor, QPainter, QScreen
 from PyQt5.QtCore import Qt, QRect
-
-
-class OverlayWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-
-        # Enhanced window configuration
-        self.setWindowFlags(
-            Qt.FramelessWindowHint
-            | Qt.WindowStaysOnTopHint
-            | Qt.SubWindow
-            | Qt.WindowTransparentForInput
-        )
-        self.setAttribute(Qt.WA_TranslucentBackground)
-
-        # Get primary screen
-        self.primary_screen = QApplication.primaryScreen()
-        screen_geometry = self.primary_screen.geometry()
-        self.setGeometry(screen_geometry)
-
-        # Block settings with more flexible positioning
-        self.focus_block = QRect(
-            screen_geometry.width() // 4,  # Default X position
-            screen_geometry.height() // 4,  # Default Y position
-            screen_geometry.width() // 2,  # Default Width
-            screen_geometry.height() // 2,  # Default Height
-        )
-
-        # Overlay visual settings
-        self.overlay_color = QColor(0, 0, 0, 150)
-        self.show_focus_block = True
-
-    def paintEvent(self, event):
-        if not self.show_focus_block:
-            return
-
-        painter = QPainter(self)
-        painter.setBrush(self.overlay_color)
-        painter.setPen(Qt.NoPen)
-
-        # Draw the overlay outside the focus block
-        painter.drawRect(self.rect())
-        painter.setCompositionMode(QPainter.CompositionMode_Clear)
-        painter.fillRect(self.focus_block, Qt.transparent)
 
 
 class SettingsPanel(QMainWindow):
@@ -86,6 +39,14 @@ class SettingsPanel(QMainWindow):
         position_group = QLabel("Block Position:")
         layout.addWidget(position_group)
 
+        # Size and Position Mode Toggle
+        pos_mode_layout = QHBoxLayout()
+        self.absolute_pos_checkbox = QCheckBox("Use Absolute Position")
+        self.absolute_pos_checkbox.setChecked(True)  # Default to absolute mode
+        self.absolute_pos_checkbox.stateChanged.connect(self.toggle_pos_mode)
+        pos_mode_layout.addWidget(self.absolute_pos_checkbox)
+        layout.addLayout(pos_mode_layout)
+
         # X Position
         x_layout = QHBoxLayout()
         x_layout.addWidget(QLabel("X Position:"))
@@ -93,6 +54,8 @@ class SettingsPanel(QMainWindow):
         self.x_spinbox.setRange(0, 3840)  # Supports up to 4K width
         self.x_spinbox.valueChanged.connect(self.update_block_position)
         x_layout.addWidget(self.x_spinbox)
+        self.x_unit_label = QLabel("px")
+        x_layout.addWidget(self.x_unit_label)
         layout.addLayout(x_layout)
 
         # Y Position
@@ -102,6 +65,8 @@ class SettingsPanel(QMainWindow):
         self.y_spinbox.setRange(0, 2160)  # Supports up to 4K height
         self.y_spinbox.valueChanged.connect(self.update_block_position)
         y_layout.addWidget(self.y_spinbox)
+        self.y_unit_label = QLabel("px")
+        y_layout.addWidget(self.y_unit_label)
         layout.addLayout(y_layout)
 
         # Block Size Controls
@@ -160,6 +125,33 @@ class SettingsPanel(QMainWindow):
         widget.setLayout(layout)
         self.setCentralWidget(widget)
 
+    def toggle_pos_mode(self, state):
+        is_absolute = state == Qt.Checked
+        screen = QApplication.primaryScreen().geometry()
+        current_rect = self.overlay_window.focus_block
+
+        if is_absolute:
+            # Switch to absolute mode
+            # Position
+            self.x_spinbox.setRange(0, 3840)
+            self.y_spinbox.setRange(0, 2160)
+            self.x_spinbox.setValue(current_rect.x())
+            self.y_spinbox.setValue(current_rect.y())
+            self.x_unit_label.setText("px")
+            self.y_unit_label.setText("px")
+
+        else:
+            # Switch to relative mode
+            # Position
+            x_percentage = int((current_rect.x() / screen.width()) * 100)
+            y_percentage = int((current_rect.y() / screen.height()) * 100)
+            self.x_spinbox.setRange(0, 100)
+            self.y_spinbox.setRange(0, 100)
+            self.x_spinbox.setValue(x_percentage)
+            self.y_spinbox.setValue(y_percentage)
+            self.x_unit_label.setText("%")
+            self.y_unit_label.setText("%")
+
     def toggle_size_mode(self, state):
         is_absolute = state == Qt.Checked
 
@@ -192,9 +184,17 @@ class SettingsPanel(QMainWindow):
         if not self.overlay_window:
             return
 
-        x = self.x_spinbox.value()
-        y = self.y_spinbox.value()
+        screen = QApplication.primaryScreen().geometry()
         current_rect = self.overlay_window.focus_block
+
+        if self.absolute_pos_checkbox.isChecked():
+            # Absolute positioning
+            x = self.x_spinbox.value()
+            y = self.y_spinbox.value()
+        else:
+            # Relative positioning
+            x = int(screen.width() * (self.x_spinbox.value() / 100))
+            y = int(screen.height() * (self.y_spinbox.value() / 100))
 
         new_rect = QRect(x, y, current_rect.width(), current_rect.height())
 
@@ -206,6 +206,7 @@ class SettingsPanel(QMainWindow):
             return
 
         screen = QApplication.primaryScreen().geometry()
+        current_rect = self.overlay_window.focus_block
 
         if self.absolute_size_checkbox.isChecked():
             # Absolute size mode
@@ -215,8 +216,6 @@ class SettingsPanel(QMainWindow):
             # Relative size mode
             width = int(screen.width() * (self.width_spinbox.value() / 100))
             height = int(screen.height() * (self.height_spinbox.value() / 100))
-
-        current_rect = self.overlay_window.focus_block
 
         new_rect = QRect(current_rect.x(), current_rect.y(), width, height)
 
@@ -244,22 +243,3 @@ class SettingsPanel(QMainWindow):
         if self.overlay_window:
             self.overlay_window.close()
         self.close()
-
-
-def main():
-    app = QApplication(sys.argv)
-
-    # Create overlay window
-    overlay_window = OverlayWindow()
-    overlay_window.show()
-
-    # Create settings panel
-    settings_panel = SettingsPanel()
-    settings_panel.overlay_window = overlay_window
-    settings_panel.show()
-
-    sys.exit(app.exec_())
-
-
-if __name__ == "__main__":
-    main()
