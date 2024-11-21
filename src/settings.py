@@ -10,9 +10,11 @@ from PyQt5.QtWidgets import (
     QCheckBox,
     QHBoxLayout,
     QSpinBox,
+    QDoubleSpinBox,
 )
 from PyQt5.QtCore import Qt, QRect
 from overlay import OverlayWindow
+from functools import partial
 
 
 class SettingsPanel(QMainWindow):
@@ -40,73 +42,12 @@ class SettingsPanel(QMainWindow):
         transparency_layout.addWidget(self.alpha_slider)
         layout.addLayout(transparency_layout)
 
-        # Block Position Controls
-        layout.addWidget(QLabel("Block Position:"))
+        self.block_spinbox = {}
+        self.unit_labels = {}
+        self.absolute_checkbox = [None, None]
 
-        # Size and Position Mode Toggle
-        pos_mode_layout = QHBoxLayout()
-        self.absolute_pos_checkbox = QCheckBox("Use Absolute Position")
-        self.absolute_pos_checkbox.setChecked(True)  # Default to absolute mode
-        self.absolute_pos_checkbox.stateChanged.connect(self.toggle_pos_mode)
-        pos_mode_layout.addWidget(self.absolute_pos_checkbox)
-        layout.addLayout(pos_mode_layout)
-
-        # X Position
-        x_layout = QHBoxLayout()
-        x_layout.addWidget(QLabel("X Position:"))
-        self.x_spinbox = QSpinBox()
-        self.x_spinbox.setRange(0, 3840)  # Supports up to 4K width
-        self.x_spinbox.valueChanged.connect(lambda: self.update_block("x"))
-        x_layout.addWidget(self.x_spinbox)
-        self.x_unit_label = QLabel("px")
-        x_layout.addWidget(self.x_unit_label)
-        layout.addLayout(x_layout)
-
-        # Y Position
-        y_layout = QHBoxLayout()
-        y_layout.addWidget(QLabel("Y Position:"))
-        self.y_spinbox = QSpinBox()
-        self.y_spinbox.setRange(0, 2160)  # Supports up to 4K height
-        self.y_spinbox.valueChanged.connect(lambda: self.update_block("y"))
-        y_layout.addWidget(self.y_spinbox)
-        self.y_unit_label = QLabel("px")
-        y_layout.addWidget(self.y_unit_label)
-        layout.addLayout(y_layout)
-
-        # Block Size Controls
-        layout.addWidget(QLabel("Block Size:"))
-
-        # Size Mode Toggle
-        size_mode_layout = QHBoxLayout()
-        self.absolute_size_checkbox = QCheckBox("Use Absolute Size")
-        self.absolute_size_checkbox.setChecked(True)  # Default to absolute size
-        self.absolute_size_checkbox.stateChanged.connect(self.toggle_size_mode)
-        size_mode_layout.addWidget(self.absolute_size_checkbox)
-        layout.addLayout(size_mode_layout)
-
-        # Width
-        width_layout = QHBoxLayout()
-        width_layout.addWidget(QLabel("Width:"))
-        self.width_spinbox = QSpinBox()
-        self.width_spinbox.setRange(0, 3840)
-        self.width_spinbox.valueChanged.connect(lambda: self.update_block("w"))
-        width_layout.addWidget(self.width_spinbox)
-        self.width_unit_label = QLabel("px")
-        width_layout.addWidget(self.width_unit_label)
-        layout.addLayout(width_layout)
-
-        # Height
-        height_layout = QHBoxLayout()
-        height_layout.addWidget(QLabel("Height:"))
-        self.height_spinbox = QSpinBox()
-        self.height_spinbox.setRange(0, 2160)
-        self.height_spinbox.valueChanged.connect(lambda: self.update_block("h"))
-        height_layout.addWidget(self.height_spinbox)
-        self.height_unit_label = QLabel("px")
-        height_layout.addWidget(self.height_unit_label)
-        layout.addLayout(height_layout)
-
-        self.init_block()
+        self.init_block_setting_panel(layout)
+        self.init_block_value()
 
         # Show/Hide Focus Block
         self.show_focus_block_checkbox = QCheckBox("Show Focus Block")
@@ -130,121 +71,123 @@ class SettingsPanel(QMainWindow):
         widget.setLayout(layout)
         self.setCentralWidget(widget)
 
-    def init_block(self):
-        if self.overlay_window == None:
-            return
-
-        screen_geometry = self.overlay_window.primary_screen.geometry()
-
-        self._block = {
-            "x": screen_geometry.width() // 4,
-            "y": screen_geometry.height() // 4,
-            "h": screen_geometry.width() // 2,
-            "w": screen_geometry.height() // 2,
+    def init_block_setting_panel(self, layout: QVBoxLayout):
+        self.xywh_split = [["x", "y"], ["w", "h"]]
+        self.xywh_range = {
+            "x": 3840,
+            "y": 2160,
+            "w": 3840,
+            "h": 2160,
         }
 
-        self.x_spinbox.setValue(self._block["x"])
-        self.y_spinbox.setValue(self._block["y"])
-        self.width_spinbox.setValue(self._block["w"])
-        self.height_spinbox.setValue(self._block["h"])
+        toggle_functions = [
+            partial(lambda state, idx=idx: self.toggle_mode(state, idx))
+            for idx in range(2)
+        ]
 
-    def toggle_pos_mode(self, state):
+        for first_idx, first in enumerate(["Position", "Size"]):
+            # Block Controls
+            layout.addWidget(QLabel("Block {}:".format(first)))
+            # Absolute Mode Toggle
+            mode_layout = QHBoxLayout()
+            absolute_checkbox = QCheckBox("Use Absolute {}".format(first))
+            absolute_checkbox.setChecked(True)  # Default to absolute mode
+            absolute_checkbox.stateChanged.connect(toggle_functions[first_idx])
+            mode_layout.addWidget(absolute_checkbox)
+            self.absolute_checkbox[first_idx] = absolute_checkbox
+            layout.addLayout(mode_layout)
+
+            for second in self.xywh_split[first_idx]:
+                block_layout = QHBoxLayout()
+                block_layout.addWidget(
+                    QLabel("{} {}:".format(second.capitalize(), first))
+                )
+                spinbox = QDoubleSpinBox()
+                spinbox.setDecimals(2)
+                spinbox.setRange(0, self.xywh_range[second])  # Supports up to 4K width
+                spinbox.valueChanged.connect(lambda: self.update_block(second))
+                self.block_spinbox[second] = spinbox
+                block_layout.addWidget(spinbox)
+                self.unit_labels[second] = QLabel("px")
+                block_layout.addWidget(self.unit_labels[second])
+                layout.addLayout(block_layout)
+
+    def init_block_value(self):
+        self.xywh = ["x", "y", "w", "h"]
+
+        if self.overlay_window == None:
+            return
+        screen = self.overlay_window.primary_screen.geometry()
+        self._block = {
+            "x": screen.width() // 4,
+            "y": screen.height() // 4,
+            "w": screen.width() // 2,
+            "h": screen.height() // 2,
+        }
+
+        # update every pair of values
+        for i in self.xywh:
+            self.block_spinbox[i].setValue(self._block[i])
+
+    def is_pos(self, xywh: str):
+        return xywh == "x" or xywh == "y"
+
+    def is_pos_idx(self, xywh: str):
+        if xywh == "x" or xywh == "y":
+            return 0
+        return 1
+
+    def get_screen_pairs(self):
+        screen = self.overlay_window.primary_screen.geometry()
+        pair = {
+            "x": screen.width(),
+            "y": screen.height(),
+            "w": screen.width(),
+            "h": screen.height(),
+        }
+        return pair
+
+    def toggle_mode(self, state, split_idx):
         if self.overlay_window == None:
             return
 
         is_absolute = state == Qt.Checked
-        screen = self.overlay_window.primary_screen.geometry()
-        # current_rect = self.overlay_window.focus_block
+
+        pair = self.get_screen_pairs()
 
         if is_absolute:
             # Switch to absolute mode
-            # Position
-            self.x_spinbox.setRange(0, 3840)
-            self.y_spinbox.setRange(0, 2160)
-            self.x_spinbox.setValue(self._block["x"])
-            self.y_spinbox.setValue(self._block["y"])
-            self.x_unit_label.setText("px")
-            self.y_unit_label.setText("px")
+            for i in self.xywh_split[split_idx]:
+                self.block_spinbox[i].setRange(0, self.xywh_range[i])
+                self.block_spinbox[i].setValue(self._block[i])
+                self.unit_labels[i].setText("px")
         else:
             # Switch to relative mode
-            # Position
-            x_percentage = (self._block["x"] / screen.width()) * 100
-            y_percentage = (self._block["y"] / screen.height()) * 100
-            self.x_spinbox.setRange(0, 100)
-            self.y_spinbox.setRange(0, 100)
-            self.x_spinbox.setValue(x_percentage)
-            self.y_spinbox.setValue(y_percentage)
-            self.x_unit_label.setText("%")
-            self.y_unit_label.setText("%")
+            for i in self.xywh_split[split_idx]:
+                percentage = (self._block[i] / pair[i]) * 100
+                self.block_spinbox[i].setRange(0, 100)
+                self.block_spinbox[i].setValue(percentage)
+                self.unit_labels[i].setText("%")
 
-    def toggle_size_mode(self, state):
-        if self.overlay_window == None:
-            return
-
-        is_absolute = state == Qt.Checked
-
-        screen = self.overlay_window.primary_screen.geometry()
-
-        if is_absolute:
-            # Switch to absolute size mode
-            self.width_spinbox.setRange(0, 3840)
-            self.height_spinbox.setRange(0, 2160)
-            self.width_spinbox.setValue(self._block["w"])
-            self.height_spinbox.setValue(self._block["h"])
-            self.width_unit_label.setText("px")
-            self.height_unit_label.setText("px")
-        else:
-            # Switch to relative size mode
-            # Convert to percentage
-            width_percentage = (self._block["w"] / screen.width()) * 100
-            height_percentage = (self._block["h"] / screen.height()) * 100
-
-            self.width_spinbox.setRange(0, 100)
-            self.height_spinbox.setRange(0, 100)
-            self.width_spinbox.setValue(width_percentage)
-            self.height_spinbox.setValue(height_percentage)
-            self.width_unit_label.setText("%")
-            self.height_unit_label.setText("%")
-
-    def update_block(self, val_name):
+    def update_block(self, xywh):
         if not self.overlay_window:
             return
         screen = self.overlay_window.primary_screen.geometry()
-
-        val_name_table = {
-            "x": {
-                "box": self.x_spinbox,
-                "rel": screen.width(),
-                "is_abs": self.absolute_pos_checkbox.isChecked(),
-            },
-            "y": {
-                "box": self.y_spinbox,
-                "rel": screen.height(),
-                "is_abs": self.absolute_pos_checkbox.isChecked(),
-            },
-            "w": {
-                "box": self.width_spinbox,
-                "rel": screen.width(),
-                "is_abs": self.absolute_size_checkbox.isChecked(),
-            },
-            "h": {
-                "box": self.height_spinbox,
-                "rel": screen.height(),
-                "is_abs": self.absolute_size_checkbox.isChecked(),
-            },
+        pair = {
+            "x": screen.width(),
+            "y": screen.height(),
+            "w": screen.width(),
+            "h": screen.height(),
         }
+        split_idx = self.is_pos_idx(xywh)
 
-        if val_name in val_name_table:
-            properties = val_name_table[val_name]
-            if properties["is_abs"]:
-                self._block[val_name] = properties["box"].value()
-            else:
-                self._block[val_name] = properties["rel"] * (
-                    properties["box"].value() / 100
-                )
+        if self.absolute_checkbox[split_idx].isChecked():
+            self._block[xywh] = self.block_spinbox[xywh].value()
+        else:
+            self._block[xywh] = pair[xywh] * (self.block_spinbox[xywh].value() / 100)
 
         new_rect = QRect(
-            self._block["x"], self._block["y"], self._block["h"], self._block["w"]
+            self._block["x"], self._block["y"], self._block["w"], self._block["h"]
         )
         self.overlay_window.focus_block = new_rect
         self.overlay_window.update()
