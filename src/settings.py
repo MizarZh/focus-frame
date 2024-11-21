@@ -79,11 +79,7 @@ class SettingsPanel(QMainWindow):
             "w": 3840,
             "h": 2160,
         }
-
-        toggle_functions = [
-            partial(lambda state, idx=idx: self.toggle_mode(state, idx))
-            for idx in range(2)
-        ]
+        self.xywh_name = {"x": "X", "y": "Y", "w": "Width", "h": "Height"}
 
         for first_idx, first in enumerate(["Position", "Size"]):
             # Block Controls
@@ -92,7 +88,9 @@ class SettingsPanel(QMainWindow):
             mode_layout = QHBoxLayout()
             absolute_checkbox = QCheckBox("Use Absolute {}".format(first))
             absolute_checkbox.setChecked(True)  # Default to absolute mode
-            absolute_checkbox.stateChanged.connect(toggle_functions[first_idx])
+            absolute_checkbox.stateChanged.connect(
+                lambda state, idx=first_idx: self.toggle_mode(state, idx)
+            )
             mode_layout.addWidget(absolute_checkbox)
             self.absolute_checkbox[first_idx] = absolute_checkbox
             layout.addLayout(mode_layout)
@@ -100,14 +98,16 @@ class SettingsPanel(QMainWindow):
             for second in self.xywh_split[first_idx]:
                 block_layout = QHBoxLayout()
                 block_layout.addWidget(
-                    QLabel("{} {}:".format(second.capitalize(), first))
+                    QLabel("{} {}:".format(self.xywh_name[second], first))
                 )
                 spinbox = QDoubleSpinBox()
                 spinbox.setDecimals(2)
                 spinbox.setRange(0, self.xywh_range[second])  # Supports up to 4K width
-                spinbox.valueChanged.connect(lambda: self.update_block(second))
-                self.block_spinbox[second] = spinbox
+                spinbox.valueChanged.connect(
+                    lambda _, xywh=second: self.update_block(xywh)
+                )
                 block_layout.addWidget(spinbox)
+                self.block_spinbox[second] = spinbox
                 self.unit_labels[second] = QLabel("px")
                 block_layout.addWidget(self.unit_labels[second])
                 layout.addLayout(block_layout)
