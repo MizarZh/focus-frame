@@ -12,13 +12,18 @@ from PyQt5.QtWidgets import (
     QSpinBox,
 )
 from PyQt5.QtCore import Qt, QRect
+from overlay import OverlayWindow
 
 
 class SettingsPanel(QMainWindow):
-    def __init__(self):
+    def __init__(self, overlay_window: OverlayWindow):
         super().__init__()
 
-        self.overlay_window = None
+        if overlay_window == None:
+            self.overlay_window = None
+        else:
+            self.overlay_window = overlay_window
+
         self.setWindowTitle("Overlay Settings")
         self.setGeometry(50, 50, 400, 500)
 
@@ -36,8 +41,7 @@ class SettingsPanel(QMainWindow):
         layout.addLayout(transparency_layout)
 
         # Block Position Controls
-        position_group = QLabel("Block Position:")
-        layout.addWidget(position_group)
+        layout.addWidget(QLabel("Block Position:"))
 
         # Size and Position Mode Toggle
         pos_mode_layout = QHBoxLayout()
@@ -52,7 +56,7 @@ class SettingsPanel(QMainWindow):
         x_layout.addWidget(QLabel("X Position:"))
         self.x_spinbox = QSpinBox()
         self.x_spinbox.setRange(0, 3840)  # Supports up to 4K width
-        self.x_spinbox.valueChanged.connect(self.update_block_position)
+        self.x_spinbox.valueChanged.connect(lambda: self.update_block("x"))
         x_layout.addWidget(self.x_spinbox)
         self.x_unit_label = QLabel("px")
         x_layout.addWidget(self.x_unit_label)
@@ -63,15 +67,14 @@ class SettingsPanel(QMainWindow):
         y_layout.addWidget(QLabel("Y Position:"))
         self.y_spinbox = QSpinBox()
         self.y_spinbox.setRange(0, 2160)  # Supports up to 4K height
-        self.y_spinbox.valueChanged.connect(self.update_block_position)
+        self.y_spinbox.valueChanged.connect(lambda: self.update_block("y"))
         y_layout.addWidget(self.y_spinbox)
         self.y_unit_label = QLabel("px")
         y_layout.addWidget(self.y_unit_label)
         layout.addLayout(y_layout)
 
         # Block Size Controls
-        size_group = QLabel("Block Size:")
-        layout.addWidget(size_group)
+        layout.addWidget(QLabel("Block Size:"))
 
         # Size Mode Toggle
         size_mode_layout = QHBoxLayout()
@@ -85,8 +88,8 @@ class SettingsPanel(QMainWindow):
         width_layout = QHBoxLayout()
         width_layout.addWidget(QLabel("Width:"))
         self.width_spinbox = QSpinBox()
-        self.width_spinbox.setRange(10, 3840)
-        self.width_spinbox.valueChanged.connect(self.update_block_size)
+        self.width_spinbox.setRange(0, 3840)
+        self.width_spinbox.valueChanged.connect(lambda: self.update_block("w"))
         width_layout.addWidget(self.width_spinbox)
         self.width_unit_label = QLabel("px")
         width_layout.addWidget(self.width_unit_label)
@@ -96,12 +99,14 @@ class SettingsPanel(QMainWindow):
         height_layout = QHBoxLayout()
         height_layout.addWidget(QLabel("Height:"))
         self.height_spinbox = QSpinBox()
-        self.height_spinbox.setRange(10, 2160)
-        self.height_spinbox.valueChanged.connect(self.update_block_size)
+        self.height_spinbox.setRange(0, 2160)
+        self.height_spinbox.valueChanged.connect(lambda: self.update_block("h"))
         height_layout.addWidget(self.height_spinbox)
         self.height_unit_label = QLabel("px")
         height_layout.addWidget(self.height_unit_label)
         layout.addLayout(height_layout)
+
+        self.init_block()
 
         # Show/Hide Focus Block
         self.show_focus_block_checkbox = QCheckBox("Show Focus Block")
@@ -125,26 +130,46 @@ class SettingsPanel(QMainWindow):
         widget.setLayout(layout)
         self.setCentralWidget(widget)
 
+    def init_block(self):
+        if self.overlay_window == None:
+            return
+
+        screen_geometry = self.overlay_window.primary_screen.geometry()
+
+        self._block = {
+            "x": screen_geometry.width() // 4,
+            "y": screen_geometry.height() // 4,
+            "h": screen_geometry.width() // 2,
+            "w": screen_geometry.height() // 2,
+        }
+
+        self.x_spinbox.setValue(self._block["x"])
+        self.y_spinbox.setValue(self._block["y"])
+        self.width_spinbox.setValue(self._block["w"])
+        self.height_spinbox.setValue(self._block["h"])
+
     def toggle_pos_mode(self, state):
+        if self.overlay_window == None:
+            return
+
         is_absolute = state == Qt.Checked
-        screen = QApplication.primaryScreen().geometry()
-        current_rect = self.overlay_window.focus_block
+        screen = self.overlay_window.primary_screen.geometry()
+        # current_rect = self.overlay_window.focus_block
 
         if is_absolute:
             # Switch to absolute mode
             # Position
             self.x_spinbox.setRange(0, 3840)
             self.y_spinbox.setRange(0, 2160)
-            self.x_spinbox.setValue(current_rect.x())
-            self.y_spinbox.setValue(current_rect.y())
+            self.x_spinbox.setValue(self._block["x"])
+            self.y_spinbox.setValue(self._block["y"])
             self.x_unit_label.setText("px")
             self.y_unit_label.setText("px")
-
         else:
             # Switch to relative mode
             # Position
-            x_percentage = int((current_rect.x() / screen.width()) * 100)
-            y_percentage = int((current_rect.y() / screen.height()) * 100)
+            x_percentage = (self._block["x"] / screen.width()) * 100
+            y_percentage = (self._block["y"] / screen.height()) * 100
             self.x_spinbox.setRange(0, 100)
             self.y_spinbox.setRange(0, 100)
             self.x_spinbox.setValue(x_percentage)
@@ -153,72 +178,74 @@ class SettingsPanel(QMainWindow):
             self.y_unit_label.setText("%")
 
     def toggle_size_mode(self, state):
+        if self.overlay_window == None:
+            return
+
         is_absolute = state == Qt.Checked
+
+        screen = self.overlay_window.primary_screen.geometry()
 
         if is_absolute:
             # Switch to absolute size mode
-            self.width_spinbox.setRange(10, 3840)
-            self.height_spinbox.setRange(10, 2160)
-            self.width_spinbox.setValue(self.overlay_window.focus_block.width())
-            self.height_spinbox.setValue(self.overlay_window.focus_block.height())
+            self.width_spinbox.setRange(0, 3840)
+            self.height_spinbox.setRange(0, 2160)
+            self.width_spinbox.setValue(self._block["w"])
+            self.height_spinbox.setValue(self._block["h"])
             self.width_unit_label.setText("px")
             self.height_unit_label.setText("px")
         else:
             # Switch to relative size mode
-            screen = QApplication.primaryScreen().geometry()
-            current_width = self.overlay_window.focus_block.width()
-            current_height = self.overlay_window.focus_block.height()
-
             # Convert to percentage
-            width_percentage = int((current_width / screen.width()) * 100)
-            height_percentage = int((current_height / screen.height()) * 100)
+            width_percentage = (self._block["w"] / screen.width()) * 100
+            height_percentage = (self._block["h"] / screen.height()) * 100
 
-            self.width_spinbox.setRange(1, 100)
-            self.height_spinbox.setRange(1, 100)
+            self.width_spinbox.setRange(0, 100)
+            self.height_spinbox.setRange(0, 100)
             self.width_spinbox.setValue(width_percentage)
             self.height_spinbox.setValue(height_percentage)
             self.width_unit_label.setText("%")
             self.height_unit_label.setText("%")
 
-    def update_block_position(self):
+    def update_block(self, val_name):
         if not self.overlay_window:
             return
+        screen = self.overlay_window.primary_screen.geometry()
 
-        screen = QApplication.primaryScreen().geometry()
-        current_rect = self.overlay_window.focus_block
+        val_name_table = {
+            "x": {
+                "box": self.x_spinbox,
+                "rel": screen.width(),
+                "is_abs": self.absolute_pos_checkbox.isChecked(),
+            },
+            "y": {
+                "box": self.y_spinbox,
+                "rel": screen.height(),
+                "is_abs": self.absolute_pos_checkbox.isChecked(),
+            },
+            "w": {
+                "box": self.width_spinbox,
+                "rel": screen.width(),
+                "is_abs": self.absolute_size_checkbox.isChecked(),
+            },
+            "h": {
+                "box": self.height_spinbox,
+                "rel": screen.height(),
+                "is_abs": self.absolute_size_checkbox.isChecked(),
+            },
+        }
 
-        if self.absolute_pos_checkbox.isChecked():
-            # Absolute positioning
-            x = self.x_spinbox.value()
-            y = self.y_spinbox.value()
-        else:
-            # Relative positioning
-            x = int(screen.width() * (self.x_spinbox.value() / 100))
-            y = int(screen.height() * (self.y_spinbox.value() / 100))
+        if val_name in val_name_table:
+            properties = val_name_table[val_name]
+            if properties["is_abs"]:
+                self._block[val_name] = properties["box"].value()
+            else:
+                self._block[val_name] = properties["rel"] * (
+                    properties["box"].value() / 100
+                )
 
-        new_rect = QRect(x, y, current_rect.width(), current_rect.height())
-
-        self.overlay_window.focus_block = new_rect
-        self.overlay_window.update()
-
-    def update_block_size(self):
-        if not self.overlay_window:
-            return
-
-        screen = QApplication.primaryScreen().geometry()
-        current_rect = self.overlay_window.focus_block
-
-        if self.absolute_size_checkbox.isChecked():
-            # Absolute size mode
-            width = self.width_spinbox.value()
-            height = self.height_spinbox.value()
-        else:
-            # Relative size mode
-            width = int(screen.width() * (self.width_spinbox.value() / 100))
-            height = int(screen.height() * (self.height_spinbox.value() / 100))
-
-        new_rect = QRect(current_rect.x(), current_rect.y(), width, height)
-
+        new_rect = QRect(
+            self._block["x"], self._block["y"], self._block["h"], self._block["w"]
+        )
         self.overlay_window.focus_block = new_rect
         self.overlay_window.update()
 

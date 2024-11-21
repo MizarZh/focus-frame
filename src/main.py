@@ -14,8 +14,7 @@ def main():
     overlay_window.show()
 
     # Create settings panel
-    settings_panel = SettingsPanel()
-    settings_panel.overlay_window = overlay_window
+    settings_panel = SettingsPanel(overlay_window)
     settings_panel.show()
 
     sys.exit(app.exec_())

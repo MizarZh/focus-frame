@@ -24,13 +24,8 @@ class OverlayWindow(QMainWindow):
         screen_geometry = self.primary_screen.geometry()
         self.setGeometry(screen_geometry)
 
-        # Block settings with more flexible positioning
-        self.focus_block = QRect(
-            screen_geometry.width() // 4,  # Default X position
-            screen_geometry.height() // 4,  # Default Y position
-            screen_geometry.width() // 2,  # Default Width
-            screen_geometry.height() // 2,  # Default Height
-        )
+        # Block init
+        self.focus_block = QRect(0, 0, 0, 0)
 
         # Overlay visual settings
         self.overlay_color = QColor(0, 0, 0, 150)
