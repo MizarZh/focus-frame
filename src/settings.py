@@ -188,13 +188,7 @@ class SettingsPanel(QMainWindow):
     def update_block(self, xywh):
         if not self.overlay_window:
             return
-        screen = self.overlay_window.primary_screen.geometry()
-        pair = {
-            "x": screen.width(),
-            "y": screen.height(),
-            "w": screen.width(),
-            "h": screen.height(),
-        }
+        pair = self.get_screen_pairs()
         split_idx = self.is_pos_split_idx(xywh)
 
         if self.absolute_checkbox[split_idx].isChecked():
@@ -207,6 +201,15 @@ class SettingsPanel(QMainWindow):
         )
         self.overlay_window.focus_block = new_rect
         self.overlay_window.update()
+
+    def update_spinbox_from_overlay(self):
+        pair = self.get_screen_pairs()
+        for split_idx in range(2):
+            for i in self.xywh_split[split_idx]:
+                if self.absolute_checkbox[split_idx].isChecked():
+                    self.block_spinbox[i].setValue(self._block[i])
+                else:
+                    self.block_spinbox[i].setValue(self._block[i] / pair[i] * 100)
 
     def update_overlay_window_flag(self):
         if not self.overlay_window:

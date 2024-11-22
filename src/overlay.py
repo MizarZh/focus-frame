@@ -105,33 +105,46 @@ class OverlayWindow(QMainWindow):
                 new_top = min(
                     self.focus_block.bottom() - self.adjust_tol, max(0, event.y())
                 )
-                self.focus_block.setTop(new_top)
+                if new_top != self.focus_block.top():
+                    self.focus_block.setTop(new_top)
             if "bottom" in self.resizing:
                 new_bottom = max(
                     self.focus_block.top() + self.adjust_tol,
                     min(self.height(), event.y()),
                 )
-                self.focus_block.setBottom(new_bottom)
+                if new_bottom != self.focus_block.bottom():
+                    self.focus_block.setBottom(new_bottom)
             if "left" in self.resizing:
                 new_left = min(
                     self.focus_block.right() - self.adjust_tol, max(0, event.x())
                 )
-                self.focus_block.setLeft(new_left)
+                if new_left != self.focus_block.left():
+                    self.focus_block.setLeft(new_left)
             if "right" in self.resizing:
                 new_right = max(
                     self.focus_block.left() + self.adjust_tol,
                     min(self.width(), event.x()),
                 )
-                self.focus_block.setRight(new_right)
-            self.update()
-
+                if new_right != self.focus_block.right():
+                    self.focus_block.setRight(new_right)
         elif self.moving:
             new_pos = event.pos() - self.offset
-            # Constrain the new position within the window's boundaries
             new_x = max(0, min(self.width() - self.focus_block.width(), new_pos.x()))
             new_y = max(0, min(self.height() - self.focus_block.height(), new_pos.y()))
-            self.focus_block.moveTopLeft(QPoint(new_x, new_y))
-            self.update()
+            if new_x != self.focus_block.x() or new_y != self.focus_block.y():
+                self.focus_block.moveTopLeft(QPoint(new_x, new_y))
+
+        if hasattr(self, "settings") and self.settings:
+            if not self.settings.isActiveWindow():
+                self.settings.raise_()
+            self.settings._block = {
+                "x": self.focus_block.x(),
+                "y": self.focus_block.y(),
+                "w": self.focus_block.width(),
+                "h": self.focus_block.height(),
+            }
+            self.settings.update_spinbox_from_overlay()
+        self.update()
 
     def mouseReleaseEvent(self, event):
         self.resizing = False
@@ -174,10 +187,5 @@ class OverlayWindow(QMainWindow):
                 return key
         return None
 
-    # def setSettingPanel(self, settings):
-    #     self.settings = settings
-
-    # def raiseSettingPanel(self):
-    #     if self.settings == None:
-    #         return
-    #     self.settings.raise_()
+    def setSettingPanel(self, settings):
+        self.settings = settings
