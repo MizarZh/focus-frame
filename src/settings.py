@@ -145,12 +145,6 @@ class SettingsPanel(QMainWindow):
             self.close_application
         )
 
-        # QShortcut(QKeySequence("Ctrl+T"), self).activated.connect(
-        #     lambda v=not self.show_focus_block_checkbox.isChecked(): self.update_focus_block_visibility(
-        #         v
-        #     )
-        # )
-
     def is_pos(self, xywh: str):
         return xywh == "x" or xywh == "y"
 
