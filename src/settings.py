@@ -11,10 +11,11 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QSpinBox,
     QDoubleSpinBox,
+    QShortcut,
 )
 from PyQt5.QtCore import Qt, QRect
 from overlay import OverlayWindow
-from functools import partial
+from PyQt5.QtGui import QKeySequence
 
 
 class SettingsPanel(QMainWindow):
@@ -26,6 +27,7 @@ class SettingsPanel(QMainWindow):
         else:
             self.overlay_window = overlay_window
 
+        self.setWindowFlag(Qt.WindowStaysOnTopHint)
         self.setWindowTitle("Overlay Settings")
         self.setGeometry(50, 50, 400, 500)
 
@@ -57,6 +59,13 @@ class SettingsPanel(QMainWindow):
         )
         layout.addWidget(self.show_focus_block_checkbox)
 
+        self.toggle_size_adjustment_checkbox = QCheckBox("Toggle Size Adjustment Mode")
+        self.toggle_size_adjustment_checkbox.setChecked(False)
+        self.toggle_size_adjustment_checkbox.stateChanged.connect(
+            self.update_overlay_window_flag
+        )
+        layout.addWidget(self.toggle_size_adjustment_checkbox)
+
         # Color selection
         color_button = QPushButton("Select Overlay Color")
         color_button.clicked.connect(self.pick_color)
@@ -70,6 +79,8 @@ class SettingsPanel(QMainWindow):
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
+
+        self.init_shortcut()
 
     def init_block_setting_panel(self, layout: QVBoxLayout):
         self.xywh_split = [["x", "y"], ["w", "h"]]
@@ -129,10 +140,21 @@ class SettingsPanel(QMainWindow):
         for i in self.xywh:
             self.block_spinbox[i].setValue(self._block[i])
 
+    def init_shortcut(self):
+        QShortcut(QKeySequence("Ctrl+Q"), self).activated.connect(
+            self.close_application
+        )
+
+        # QShortcut(QKeySequence("Ctrl+T"), self).activated.connect(
+        #     lambda v=not self.show_focus_block_checkbox.isChecked(): self.update_focus_block_visibility(
+        #         v
+        #     )
+        # )
+
     def is_pos(self, xywh: str):
         return xywh == "x" or xywh == "y"
 
-    def is_pos_idx(self, xywh: str):
+    def is_pos_split_idx(self, xywh: str):
         if xywh == "x" or xywh == "y":
             return 0
         return 1
@@ -179,7 +201,7 @@ class SettingsPanel(QMainWindow):
             "w": screen.width(),
             "h": screen.height(),
         }
-        split_idx = self.is_pos_idx(xywh)
+        split_idx = self.is_pos_split_idx(xywh)
 
         if self.absolute_checkbox[split_idx].isChecked():
             self._block[xywh] = self.block_spinbox[xywh].value()
@@ -191,6 +213,31 @@ class SettingsPanel(QMainWindow):
         )
         self.overlay_window.focus_block = new_rect
         self.overlay_window.update()
+
+    def update_overlay_window_flag(self):
+        if not self.overlay_window:
+            return
+
+        # Save current window position and size
+        current_pos = self.overlay_window.pos()
+        current_rect = self.overlay_window.geometry()
+
+        # Start with default
+        flags = Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.SubWindow
+
+        # Add flags based on checkbox states
+        if not self.toggle_size_adjustment_checkbox.isChecked():
+            flags |= Qt.WindowTransparentForInput
+
+        # Update window flags
+        self.overlay_window.setWindowFlags(flags)
+
+        # Restore window position and show
+        self.overlay_window.setGeometry(current_rect)
+        self.overlay_window.show()
+
+        # Raise the level of setting panel to prevent blocking
+        self.raise_()
 
     def update_alpha(self, value):
         if self.overlay_window:

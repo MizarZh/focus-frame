@@ -10,7 +10,7 @@ class OverlayWindow(QMainWindow):
     def __init__(self):
         super().__init__()
 
-        # Enhanced window configuration
+        # Default flag
         self.setWindowFlags(
             Qt.FramelessWindowHint
             | Qt.WindowStaysOnTopHint
