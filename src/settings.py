@@ -47,6 +47,7 @@ class SettingsPanel(QMainWindow):
         self.block_spinbox = {}
         self.unit_labels = {}
         self.absolute_checkbox = [None, None]
+        self.alpha = 150
 
         self.init_block_setting_panel(layout)
         self.init_block_value()
@@ -237,6 +238,7 @@ class SettingsPanel(QMainWindow):
         self.raise_()
 
     def update_alpha(self, value):
+        self.alpha = value
         if self.overlay_window:
             self.overlay_window.overlay_color.setAlpha(value)
             self.overlay_window.update()
@@ -250,6 +252,7 @@ class SettingsPanel(QMainWindow):
         if self.overlay_window:
             color = QColorDialog.getColor(self.overlay_window.overlay_color)
             if color.isValid():
+                color.setAlpha(self.alpha)
                 self.overlay_window.overlay_color = color
                 self.overlay_window.update()
 
