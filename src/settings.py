@@ -11,11 +11,15 @@ from PyQt5.QtWidgets import (
     QHBoxLayout,
     QSpinBox,
     QDoubleSpinBox,
+    QComboBox,
     QShortcut,
+    QFileDialog,
+    QMessageBox,
 )
 from PyQt5.QtCore import Qt, QRect
 from overlay import OverlayWindow
 from PyQt5.QtGui import QKeySequence
+import json
 
 
 class SettingsPanel(QMainWindow):
@@ -31,7 +35,27 @@ class SettingsPanel(QMainWindow):
         self.setWindowTitle("Overlay Settings")
         self.setGeometry(50, 50, 400, 500)
 
+        # self.presets = self.init_presets()
+
         layout = QVBoxLayout()
+
+        # Preset imports and exports
+        import_button = QPushButton("Import Presets")
+        import_button.clicked.connect(self.import_presets)
+
+        export_button = QPushButton("Export Presets")
+        export_button.clicked.connect(self.export_presets)
+
+        layout.addWidget(import_button)
+        layout.addWidget(export_button)
+
+        # Preset Selection and Management
+        preset_layout = QHBoxLayout()
+        self.preset_combobox = QComboBox()
+        self.preset_combobox.addItems(self.presets.keys())
+        self.preset_combobox.currentIndexChanged.connect(self.apply_preset)
+        preset_layout.addWidget(self.preset_combobox)
+        layout.addLayout(preset_layout)
 
         # Transparency Slider
         transparency_layout = QHBoxLayout()
@@ -124,6 +148,90 @@ class SettingsPanel(QMainWindow):
                 block_layout.addWidget(self.unit_labels[second])
                 layout.addLayout(block_layout)
 
+    # def init_presets(self):
+    #     if self.overlay_window == None:
+    #         return {
+    #             "default": {
+    #                 "x": 100,
+    #                 "y": 100,
+    #                 "w": 400,
+    #                 "h": 400,
+    #             }
+    #         }
+    #     else:
+    #         screen = self.overlay_window.screen().geometry()
+    #         return {
+    #             "default": {
+    #                 "x": screen.width() // 4,
+    #                 "y": screen.height() // 4,
+    #                 "w": screen.width() // 2,
+    #                 "h": screen.height() // 2,
+    #             }
+    #         }
+
+    def import_presets(self):
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Presets",
+            "",
+            "JSON Files (*.json);;All Files (*)",
+            options=options,
+        )
+        if file_path:
+            try:
+                with open(file_path, "r") as file:
+                    imported_data = json.load(file)
+                    if "presets" in imported_data:
+                        self.presets.update(imported_data["presets"])
+                        self.update_preset_combobox()
+                        self.save_presets()  # Save updated presets to file
+                        QMessageBox.information(
+                            self,
+                            "Import Successful",
+                            "Presets have been imported successfully.",
+                        )
+                    else:
+                        QMessageBox.warning(
+                            self,
+                            "Import Failed",
+                            "The selected file does not contain valid presets.",
+                        )
+            except Exception as e:
+                QMessageBox.critical(
+                    self, "Error", f"An error occurred while importing presets: {e}"
+                )
+
+    def export_presets(self):
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Presets",
+            "presets.json",
+            "JSON Files (*.json);;All Files (*)",
+            options=options,
+        )
+        if file_path:
+            try:
+                with open(file_path, "w") as file:
+                    json.dump({"presets": self.presets}, file, indent=4)
+                QMessageBox.information(
+                    self,
+                    "Export Successful",
+                    "Presets have been exported successfully.",
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self, "Error", f"An error occurred while exporting presets: {e}"
+                )
+
+    # def import_presets(self, file_path):
+    #     new_presets = load_presets(file_path)
+    #     self.presets.update(new_presets)
+
+    # def export_presets(presets, file_path):
+    #     save_presets(self.presets, file_path)
+
     def init_block_value(self):
         self.xywh = ["x", "y", "w", "h"]
 
@@ -163,6 +271,10 @@ class SettingsPanel(QMainWindow):
             "h": screen.height(),
         }
         return pair
+
+    def apply_preset(self, index):
+        if not self.overlay_window:
+            return
 
     def toggle_mode(self, state, split_idx):
         if self.overlay_window == None:
