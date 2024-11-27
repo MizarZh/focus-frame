@@ -20,6 +20,7 @@ from PyQt5.QtCore import Qt, QRect
 from overlay import OverlayWindow
 from PyQt5.QtGui import QKeySequence
 import json
+from validator import preset_validator
 
 
 class SettingsPanel(QMainWindow):
@@ -35,25 +36,36 @@ class SettingsPanel(QMainWindow):
         self.setWindowTitle("Overlay Settings")
         self.setGeometry(50, 50, 400, 500)
 
-        # self.presets = self.init_presets()
+        self.presets_name = "Untitiled"
+        self.presets_file_path = None
+        self.presets = self.init_presets()
+        self.current_preset_idx = 0
 
         layout = QVBoxLayout()
 
-        # Preset imports and exports
+        # Presets settings
+        presets_layout = QVBoxLayout()
+        presets_layout.addWidget(QLabel("Presets Name:"))
+        self.current_presets_label = QLabel(self.presets_name)
+        presets_layout.addWidget(self.current_presets_label)
+        layout.addLayout(presets_layout)
+
+        # Preset imports, saves and exports
         import_button = QPushButton("Import Presets")
         import_button.clicked.connect(self.import_presets)
-
+        save_button = QPushButton("Save Presets")
+        save_button.clicked.connect(self.save_presets)
         export_button = QPushButton("Export Presets")
         export_button.clicked.connect(self.export_presets)
-
-        layout.addWidget(import_button)
-        layout.addWidget(export_button)
+        presets_layout.addWidget(import_button)
+        presets_layout.addWidget(save_button)
+        presets_layout.addWidget(export_button)
 
         # Preset Selection and Management
         preset_layout = QHBoxLayout()
         self.preset_combobox = QComboBox()
-        self.preset_combobox.addItems(self.presets.keys())
-        self.preset_combobox.currentIndexChanged.connect(self.apply_preset)
+        self.preset_combobox.addItems(self.presets)
+        self.preset_combobox.currentIndexChanged.connect(self.change_preset)
         preset_layout.addWidget(self.preset_combobox)
         layout.addLayout(preset_layout)
 
@@ -71,7 +83,6 @@ class SettingsPanel(QMainWindow):
         self.block_spinbox = {}
         self.unit_labels = {}
         self.absolute_checkbox = [None, None]
-        self.alpha = 150
 
         self.init_block_setting_panel(layout)
         self.init_block_value()
@@ -148,89 +159,34 @@ class SettingsPanel(QMainWindow):
                 block_layout.addWidget(self.unit_labels[second])
                 layout.addLayout(block_layout)
 
-    # def init_presets(self):
-    #     if self.overlay_window == None:
-    #         return {
-    #             "default": {
-    #                 "x": 100,
-    #                 "y": 100,
-    #                 "w": 400,
-    #                 "h": 400,
-    #             }
-    #         }
-    #     else:
-    #         screen = self.overlay_window.screen().geometry()
-    #         return {
-    #             "default": {
-    #                 "x": screen.width() // 4,
-    #                 "y": screen.height() // 4,
-    #                 "w": screen.width() // 2,
-    #                 "h": screen.height() // 2,
-    #             }
-    #         }
-
-    def import_presets(self):
-        options = QFileDialog.Options()
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Import Presets",
-            "",
-            "JSON Files (*.json);;All Files (*)",
-            options=options,
-        )
-        if file_path:
-            try:
-                with open(file_path, "r") as file:
-                    imported_data = json.load(file)
-                    if "presets" in imported_data:
-                        self.presets.update(imported_data["presets"])
-                        self.update_preset_combobox()
-                        self.save_presets()  # Save updated presets to file
-                        QMessageBox.information(
-                            self,
-                            "Import Successful",
-                            "Presets have been imported successfully.",
-                        )
-                    else:
-                        QMessageBox.warning(
-                            self,
-                            "Import Failed",
-                            "The selected file does not contain valid presets.",
-                        )
-            except Exception as e:
-                QMessageBox.critical(
-                    self, "Error", f"An error occurred while importing presets: {e}"
-                )
-
-    def export_presets(self):
-        options = QFileDialog.Options()
-        file_path, _ = QFileDialog.getSaveFileName(
-            self,
-            "Export Presets",
-            "presets.json",
-            "JSON Files (*.json);;All Files (*)",
-            options=options,
-        )
-        if file_path:
-            try:
-                with open(file_path, "w") as file:
-                    json.dump({"presets": self.presets}, file, indent=4)
-                QMessageBox.information(
-                    self,
-                    "Export Successful",
-                    "Presets have been exported successfully.",
-                )
-            except Exception as e:
-                QMessageBox.critical(
-                    self, "Error", f"An error occurred while exporting presets: {e}"
-                )
-
-    # def import_presets(self, file_path):
-    #     new_presets = load_presets(file_path)
-    #     self.presets.update(new_presets)
-
-    # def export_presets(presets, file_path):
-    #     save_presets(self.presets, file_path)
+    def init_presets(self):
+        if self.overlay_window == None:
+            return [
+                {
+                    "preset_name": "default",
+                    "alpha": 150,
+                    "x": 100,
+                    "y": 100,
+                    "w": 400,
+                    "h": 400,
+                    "xy_abs": True,
+                    "wh_abs": True,
+                }
+            ]
+        else:
+            screen = self.overlay_window.screen().geometry()
+            return [
+                {
+                    "preset_name": "default",
+                    "alpha": 150,
+                    "x": screen.width() // 4,
+                    "y": screen.height() // 4,
+                    "w": screen.width() // 2,
+                    "h": screen.height() // 2,
+                    "xy_abs": True,
+                    "wh_abs": True,
+                }
+            ]
 
     def init_block_value(self):
         self.xywh = ["x", "y", "w", "h"]
@@ -238,7 +194,7 @@ class SettingsPanel(QMainWindow):
         if self.overlay_window == None:
             return
         screen = self.overlay_window.primary_screen.geometry()
-        self._block = {
+        self.block_xywh_value = {
             "x": screen.width() // 4,
             "y": screen.height() // 4,
             "w": screen.width() // 2,
@@ -247,7 +203,7 @@ class SettingsPanel(QMainWindow):
 
         # update every pair of values
         for i in self.xywh:
-            self.block_spinbox[i].setValue(self._block[i])
+            self.block_spinbox[i].setValue(self.block_xywh_value[i])
 
     def init_shortcut(self):
         QShortcut(QKeySequence("Ctrl+Q"), self).activated.connect(
@@ -272,12 +228,114 @@ class SettingsPanel(QMainWindow):
         }
         return pair
 
-    def apply_preset(self, index):
+    def import_presets(self):
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Presets",
+            "",
+            "JSON Files (*.json);;All Files (*)",
+            options=options,
+        )
+        if file_path:
+            self.presets_file_path = file_path
+            try:
+                with open(file_path, "r") as file:
+                    imported_data = json.load(file)
+                    validate_result = preset_validator(imported_data)
+                    if validate_result:
+                        self.presets_name = imported_data["presets_name"]
+                        self.presets = imported_data["presets"]
+                        self.update_preset_combobox()
+                        QMessageBox.information(
+                            self,
+                            "Import Successful",
+                            "Presets have been imported successfully.",
+                        )
+                    else:
+                        QMessageBox.warning(
+                            self,
+                            "Import Failed",
+                            "The selected file does not contain valid presets.",
+                        )
+            except Exception as e:
+                QMessageBox.critical(
+                    self, "Error", f"An error occurred while importing presets: {e}"
+                )
+
+    def save_presets(self):
+        if self.presets_file_path:
+            try:
+                with open(self.presets_file_path, "w") as file:
+                    json.dump(self.presets, file, indent=4)
+                QMessageBox.information(
+                    self,
+                    "Save Successful",
+                    "Presets have been saved successfully.",
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self, "Error", f"An error occurred while saving presets: {e}"
+                )
+        else:
+            self.export_presets()
+
+    def export_presets(self):
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getSaveFileName(
+            self,
+            "Export Presets",
+            "presets.json",
+            "JSON Files (*.json);;All Files (*)",
+            options=options,
+        )
+        if file_path:
+            try:
+                with open(file_path, "w") as file:
+                    json.dump(self.presets, file, indent=4)
+                QMessageBox.information(
+                    self,
+                    "Export Successful",
+                    "Presets have been exported successfully.",
+                )
+            except Exception as e:
+                QMessageBox.critical(
+                    self, "Error", f"An error occurred while exporting presets: {e}"
+                )
+
+    def change_preset(self, index):
         if not self.overlay_window:
             return
 
+        self.current_preset_idx = index
+        self.update_preset_combobox()
+
+    def update_preset_combobox(self):
+        if self.presets:
+            presets = self.presets[self.current_preset_idx]
+
+            # Update abs/rel mode
+            self.absolute_checkbox[0] = presets["xy_abs"]
+            self.absolute_checkbox[1] = presets["wh_abs"]
+
+            # Update block value
+            self.block_xywh_value["x"] = presets["x"]
+            self.block_xywh_value["y"] = presets["y"]
+            self.block_xywh_value["w"] = presets["w"]
+            self.block_xywh_value["h"] = presets["h"]
+            self.update_xywh_spinbox_all()
+
+            # Update transparency
+            self.update_alpha(presets["alpha"])
+
+            # Update color
+            # self.pick_color()
+
+            if self.overlay_window:
+                self.overlay_window.update()
+
     def toggle_mode(self, state, split_idx):
-        if self.overlay_window == None:
+        if not self.overlay_window:
             return
 
         is_absolute = state == Qt.Checked
@@ -288,12 +346,12 @@ class SettingsPanel(QMainWindow):
             # Switch to absolute mode
             for i in self.xywh_split[split_idx]:
                 self.block_spinbox[i].setRange(0, self.xywh_range[i])
-                self.block_spinbox[i].setValue(self._block[i])
+                self.block_spinbox[i].setValue(self.block_xywh_value[i])
                 self.unit_labels[i].setText("px")
         else:
             # Switch to relative mode
             for i in self.xywh_split[split_idx]:
-                percentage = (self._block[i] / pair[i]) * 100
+                percentage = (self.block_xywh_value[i] / pair[i]) * 100
                 self.block_spinbox[i].setRange(0, 100)
                 self.block_spinbox[i].setValue(percentage)
                 self.unit_labels[i].setText("%")
@@ -305,24 +363,33 @@ class SettingsPanel(QMainWindow):
         split_idx = self.is_pos_split_idx(xywh)
 
         if self.absolute_checkbox[split_idx].isChecked():
-            self._block[xywh] = self.block_spinbox[xywh].value()
+            self.block_xywh_value[xywh] = self.block_spinbox[xywh].value()
         else:
-            self._block[xywh] = pair[xywh] * (self.block_spinbox[xywh].value() / 100)
+            self.block_xywh_value[xywh] = pair[xywh] * (
+                self.block_spinbox[xywh].value() / 100
+            )
 
         new_rect = QRect(
-            self._block["x"], self._block["y"], self._block["w"], self._block["h"]
+            self.block_xywh_value["x"],
+            self.block_xywh_value["y"],
+            self.block_xywh_value["w"],
+            self.block_xywh_value["h"],
         )
         self.overlay_window.focus_block = new_rect
         self.overlay_window.update()
 
-    def update_spinbox_from_overlay(self):
+    def update_xywh_spinbox_all(self):
+        if not self.overlay_window:
+            return
         pair = self.get_screen_pairs()
         for split_idx in range(2):
             for i in self.xywh_split[split_idx]:
                 if self.absolute_checkbox[split_idx].isChecked():
-                    self.block_spinbox[i].setValue(self._block[i])
+                    self.block_spinbox[i].setValue(self.block_xywh_value[i])
                 else:
-                    self.block_spinbox[i].setValue(self._block[i] / pair[i] * 100)
+                    self.block_spinbox[i].setValue(
+                        self.block_xywh_value[i] / pair[i] * 100
+                    )
 
     def update_overlay_window_flag(self):
         if not self.overlay_window:
@@ -350,7 +417,7 @@ class SettingsPanel(QMainWindow):
         self.raise_()
 
     def update_alpha(self, value):
-        self.alpha = value
+        self.presets[self.current_preset_idx]['alpha'] = value
         if self.overlay_window:
             self.overlay_window.overlay_color.setAlpha(value)
             self.overlay_window.update()
@@ -363,8 +430,9 @@ class SettingsPanel(QMainWindow):
     def pick_color(self):
         if self.overlay_window:
             color = QColorDialog.getColor(self.overlay_window.overlay_color)
+            self.presets[self.current_preset_idx]['color'] = color
             if color.isValid():
-                color.setAlpha(self.alpha)
+                color.setAlpha(self.presets[self.current_preset_idx]['alpha'])
                 self.overlay_window.overlay_color = color
                 self.overlay_window.update()
 

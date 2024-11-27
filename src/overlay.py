@@ -143,7 +143,7 @@ class OverlayWindow(QMainWindow):
                 "w": self.focus_block.width(),
                 "h": self.focus_block.height(),
             }
-            self.settings.update_spinbox_from_overlay()
+            self.settings.update_xywh_spinbox_all()
         self.update()
 
     def mouseReleaseEvent(self, event):
