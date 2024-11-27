@@ -137,13 +137,12 @@ class OverlayWindow(QMainWindow):
         if hasattr(self, "settings") and self.settings:
             if not self.settings.isActiveWindow():
                 self.settings.raise_()
-            self.settings._block = {
-                "x": self.focus_block.x(),
-                "y": self.focus_block.y(),
-                "w": self.focus_block.width(),
-                "h": self.focus_block.height(),
-            }
-            self.settings.update_xywh_spinbox_all()
+            presets = self.settings.presets[self.settings.current_preset_idx]
+            presets['x'] = self.focus_block.x()
+            presets['y'] = self.focus_block.y()
+            presets['w'] = self.focus_block.width()
+            presets['h'] = self.focus_block.height()
+            self.settings.update_xywh_spinbox()
         self.update()
 
     def mouseReleaseEvent(self, event):

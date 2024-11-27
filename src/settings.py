@@ -64,7 +64,7 @@ class SettingsPanel(QMainWindow):
         # Preset Selection and Management
         preset_layout = QHBoxLayout()
         self.preset_combobox = QComboBox()
-        self.preset_combobox.addItems(self.presets)
+        self.preset_combobox.addItems(self.get_preset_names())
         self.preset_combobox.currentIndexChanged.connect(self.change_preset)
         preset_layout.addWidget(self.preset_combobox)
         layout.addLayout(preset_layout)
@@ -84,8 +84,9 @@ class SettingsPanel(QMainWindow):
         self.unit_labels = {}
         self.absolute_checkbox = [None, None]
 
+        # Add block spinbox/ abs/rel settings
         self.init_block_setting_panel(layout)
-        self.init_block_value()
+        self.init_block_spinbox_value()
 
         # Show/Hide Focus Block
         self.show_focus_block_checkbox = QCheckBox("Show Focus Block")
@@ -151,7 +152,7 @@ class SettingsPanel(QMainWindow):
                 spinbox.setDecimals(2)
                 spinbox.setRange(0, self.xywh_range[second])  # Supports up to 4K width
                 spinbox.valueChanged.connect(
-                    lambda _, xywh=second: self.update_block(xywh)
+                    lambda _, xywh=second: self.update_xywh_data(xywh)
                 )
                 block_layout.addWidget(spinbox)
                 self.block_spinbox[second] = spinbox
@@ -188,27 +189,26 @@ class SettingsPanel(QMainWindow):
                 }
             ]
 
-    def init_block_value(self):
+    def init_block_spinbox_value(self):
         self.xywh = ["x", "y", "w", "h"]
-
-        if self.overlay_window == None:
-            return
-        screen = self.overlay_window.primary_screen.geometry()
-        self.block_xywh_value = {
-            "x": screen.width() // 4,
-            "y": screen.height() // 4,
-            "w": screen.width() // 2,
-            "h": screen.height() // 2,
-        }
 
         # update every pair of values
         for i in self.xywh:
-            self.block_spinbox[i].setValue(self.block_xywh_value[i])
+            self.block_spinbox[i].setValue(self.presets[self.current_preset_idx][i])
 
     def init_shortcut(self):
         QShortcut(QKeySequence("Ctrl+Q"), self).activated.connect(
             self.close_application
         )
+
+    def get_preset_names(self):
+        if self.presets:
+            preset_names = []
+            for i in self.presets:
+                preset_names.append(i["preset_name"])
+            return preset_names
+        else:
+            return []
 
     def is_pos(self, xywh: str):
         return xywh == "x" or xywh == "y"
@@ -292,7 +292,11 @@ class SettingsPanel(QMainWindow):
         if file_path:
             try:
                 with open(file_path, "w") as file:
-                    json.dump(self.presets, file, indent=4)
+                    json.dump(
+                        {"presets_name": "presets", "presets": self.presets},
+                        file,
+                        indent=4,
+                    )
                 QMessageBox.information(
                     self,
                     "Export Successful",
@@ -314,16 +318,18 @@ class SettingsPanel(QMainWindow):
         if self.presets:
             presets = self.presets[self.current_preset_idx]
 
+            # Update preset names
+
+            self.preset_combobox.clear()
+            # self.preset_combobox.addItems(self.get_preset_names())
+
             # Update abs/rel mode
-            self.absolute_checkbox[0] = presets["xy_abs"]
-            self.absolute_checkbox[1] = presets["wh_abs"]
+            self.absolute_checkbox[0].setChecked(presets["xy_abs"])
+            self.absolute_checkbox[1].setChecked(presets["wh_abs"])
 
             # Update block value
-            self.block_xywh_value["x"] = presets["x"]
-            self.block_xywh_value["y"] = presets["y"]
-            self.block_xywh_value["w"] = presets["w"]
-            self.block_xywh_value["h"] = presets["h"]
-            self.update_xywh_spinbox_all()
+            self.update_xywh_spinbox()
+            self.update_overlay_block()
 
             # Update transparency
             self.update_alpha(presets["alpha"])
@@ -346,78 +352,72 @@ class SettingsPanel(QMainWindow):
             # Switch to absolute mode
             for i in self.xywh_split[split_idx]:
                 self.block_spinbox[i].setRange(0, self.xywh_range[i])
-                self.block_spinbox[i].setValue(self.block_xywh_value[i])
+                self.block_spinbox[i].setValue(self.presets[self.current_preset_idx][i])
                 self.unit_labels[i].setText("px")
         else:
             # Switch to relative mode
             for i in self.xywh_split[split_idx]:
-                percentage = (self.block_xywh_value[i] / pair[i]) * 100
+                percentage = (self.presets[self.current_preset_idx][i] / pair[i]) * 100
                 self.block_spinbox[i].setRange(0, 100)
                 self.block_spinbox[i].setValue(percentage)
                 self.unit_labels[i].setText("%")
 
-    def update_block(self, xywh):
+    def update_overlay_block(self):
+        new_rect = QRect(
+            self.presets[self.current_preset_idx]["x"],
+            self.presets[self.current_preset_idx]["y"],
+            self.presets[self.current_preset_idx]["w"],
+            self.presets[self.current_preset_idx]["h"],
+        )
+        self.overlay_window.focus_block = new_rect
+        self.overlay_window.update()
+
+    # spinbox -> data, and update overlay block
+    def update_xywh_data(self, xywh):
         if not self.overlay_window:
             return
         pair = self.get_screen_pairs()
         split_idx = self.is_pos_split_idx(xywh)
 
         if self.absolute_checkbox[split_idx].isChecked():
-            self.block_xywh_value[xywh] = self.block_spinbox[xywh].value()
+            self.presets[self.current_preset_idx][xywh] = self.block_spinbox[
+                xywh
+            ].value()
         else:
-            self.block_xywh_value[xywh] = pair[xywh] * (
+            self.presets[self.current_preset_idx][xywh] = pair[xywh] * (
                 self.block_spinbox[xywh].value() / 100
             )
+        self.update_overlay_block()
 
-        new_rect = QRect(
-            self.block_xywh_value["x"],
-            self.block_xywh_value["y"],
-            self.block_xywh_value["w"],
-            self.block_xywh_value["h"],
-        )
-        self.overlay_window.focus_block = new_rect
-        self.overlay_window.update()
-
-    def update_xywh_spinbox_all(self):
+    # data -> spinbox, not update overlay block
+    def update_xywh_spinbox(self):
         if not self.overlay_window:
             return
         pair = self.get_screen_pairs()
         for split_idx in range(2):
             for i in self.xywh_split[split_idx]:
                 if self.absolute_checkbox[split_idx].isChecked():
-                    self.block_spinbox[i].setValue(self.block_xywh_value[i])
+                    self.block_spinbox[i].setValue(
+                        self.presets[self.current_preset_idx][i]
+                    )
                 else:
                     self.block_spinbox[i].setValue(
-                        self.block_xywh_value[i] / pair[i] * 100
+                        self.presets[self.current_preset_idx][i] / pair[i] * 100
                     )
 
     def update_overlay_window_flag(self):
         if not self.overlay_window:
             return
-
-        # Save current window position and size
-        current_pos = self.overlay_window.pos()
-        current_rect = self.overlay_window.geometry()
-
-        # Start with default
         flags = Qt.FramelessWindowHint | Qt.WindowStaysOnTopHint | Qt.SubWindow
-
-        # Add flags based on checkbox states
         if not self.toggle_size_adjustment_checkbox.isChecked():
             flags |= Qt.WindowTransparentForInput
-
-        # Update window flags
         self.overlay_window.setWindowFlags(flags)
-
-        # Restore window position and show
-        self.overlay_window.setGeometry(current_rect)
         self.overlay_window.show()
-
         # Raise the level of setting panel to prevent blocking
         self.raise_()
 
     def update_alpha(self, value):
-        self.presets[self.current_preset_idx]['alpha'] = value
+        self.presets[self.current_preset_idx]["alpha"] = value
         if self.overlay_window:
             self.overlay_window.overlay_color.setAlpha(value)
             self.overlay_window.update()
@@ -430,9 +430,9 @@ class SettingsPanel(QMainWindow):
     def pick_color(self):
         if self.overlay_window:
             color = QColorDialog.getColor(self.overlay_window.overlay_color)
-            self.presets[self.current_preset_idx]['color'] = color
+            self.presets[self.current_preset_idx]["color"] = color
             if color.isValid():
-                color.setAlpha(self.presets[self.current_preset_idx]['alpha'])
+                color.setAlpha(self.presets[self.current_preset_idx]["alpha"])
                 self.overlay_window.overlay_color = color
                 self.overlay_window.update()
 
