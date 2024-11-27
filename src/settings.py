@@ -246,6 +246,7 @@ class SettingsPanel(QMainWindow):
                     if validate_result:
                         self.presets_name = imported_data["presets_name"]
                         self.presets = imported_data["presets"]
+                        self.update_preset_combobox_items()
                         self.update_preset_combobox()
                         QMessageBox.information(
                             self,
@@ -314,14 +315,13 @@ class SettingsPanel(QMainWindow):
         self.current_preset_idx = index
         self.update_preset_combobox()
 
+    def update_preset_combobox_items(self):
+        self.preset_combobox.clear()
+        self.preset_combobox.addItems(self.get_preset_names())
+
     def update_preset_combobox(self):
         if self.presets:
             presets = self.presets[self.current_preset_idx]
-
-            # Update preset names
-
-            self.preset_combobox.clear()
-            # self.preset_combobox.addItems(self.get_preset_names())
 
             # Update abs/rel mode
             self.absolute_checkbox[0].setChecked(presets["xy_abs"])
