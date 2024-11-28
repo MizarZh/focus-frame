@@ -15,6 +15,9 @@ from PyQt5.QtWidgets import (
     QShortcut,
     QFileDialog,
     QMessageBox,
+    QLineEdit,
+    QInputDialog,
+    QDialog
 )
 from PyQt5.QtCore import Qt, QRect
 from overlay import OverlayWindow
@@ -38,7 +41,7 @@ class SettingsPanel(QMainWindow):
 
         self.presets_name = "Untitiled"
         self.presets_file_path = None
-        self.presets = self.init_presets()
+        self.presets = [self.init_presets("default")]
         self.current_preset_idx = 0
 
         layout = QVBoxLayout()
@@ -68,6 +71,20 @@ class SettingsPanel(QMainWindow):
         self.preset_combobox.currentIndexChanged.connect(self.change_preset)
         preset_layout.addWidget(self.preset_combobox)
         layout.addLayout(preset_layout)
+
+        # Preset Edit
+        edit_preset_layout = QVBoxLayout()
+        add_button = QPushButton("Add Preset")
+        add_button.clicked.connect(self.add_preset)
+        rename_button = QPushButton("Rename Preset")
+        rename_button.clicked.connect(self.rename_preset)
+        delete_button = QPushButton("Delete Preset")
+        delete_button.clicked.connect(self.delete_preset)
+
+        edit_preset_layout.addWidget(add_button)
+        edit_preset_layout.addWidget(rename_button)
+        edit_preset_layout.addWidget(delete_button)
+        layout.addLayout(edit_preset_layout)
 
         # Transparency Slider
         transparency_layout = QHBoxLayout()
@@ -160,34 +177,31 @@ class SettingsPanel(QMainWindow):
                 block_layout.addWidget(self.unit_labels[second])
                 layout.addLayout(block_layout)
 
-    def init_presets(self):
+    def init_presets(self, name):
         if self.overlay_window == None:
-            return [
-                {
-                    "preset_name": "default",
-                    "alpha": 150,
-                    "x": 100,
-                    "y": 100,
-                    "w": 400,
-                    "h": 400,
-                    "xy_abs": True,
-                    "wh_abs": True,
-                }
-            ]
+            return {
+                "preset_name": name,
+                "alpha": 150,
+                "x": 100,
+                "y": 100,
+                "w": 400,
+                "h": 400,
+                "xy_abs": True,
+                "wh_abs": True,
+            }
+
         else:
             screen = self.overlay_window.screen().geometry()
-            return [
-                {
-                    "preset_name": "default",
-                    "alpha": 150,
-                    "x": screen.width() // 4,
-                    "y": screen.height() // 4,
-                    "w": screen.width() // 2,
-                    "h": screen.height() // 2,
-                    "xy_abs": True,
-                    "wh_abs": True,
-                }
-            ]
+            return {
+                "preset_name": name,
+                "alpha": 150,
+                "x": screen.width() // 4,
+                "y": screen.height() // 4,
+                "w": screen.width() // 2,
+                "h": screen.height() // 2,
+                "xy_abs": True,
+                "wh_abs": True,
+            }
 
     def init_block_spinbox_value(self):
         self.xywh = ["x", "y", "w", "h"]
@@ -314,6 +328,52 @@ class SettingsPanel(QMainWindow):
 
         self.current_preset_idx = index
         self.update_preset_combobox()
+
+    def add_preset(self):
+        new_preset_name, ok = QInputDialog.getText(
+            self, "New Preset", "Enter new preset name:"
+        )
+        if ok and new_preset_name.strip():
+            # Check for duplicate
+            if new_preset_name.strip() in self.get_preset_names():
+                QMessageBox.warning(self, "Duplicate Item", "This item already exists!")
+            else:
+                self.presets.append(self.init_presets(new_preset_name.strip()))
+                self.update_preset_combobox_items()
+
+    def rename_preset(self):
+        new_preset_name, ok = QInputDialog.getText(
+            self, "New Preset", "Enter new preset name:"
+        )
+        if ok and new_preset_name.strip():
+            # Check for duplicate
+            if new_preset_name.strip() in self.get_preset_names():
+                QMessageBox.warning(self, "Duplicate Item", "This item already exists!")
+            else:
+                self.presets[self.current_preset_idx]["preset_name"] = new_preset_name
+                self.update_preset_combobox_items()
+
+    def delete_preset(self):
+        reply = QMessageBox.question(
+            self, 
+            "Delete confirmation", 
+            "Do you want to delete this preset?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply == QMessageBox.Yes:
+            if len(self.presets) <= 1:
+                QMessageBox.warning(
+                    self, "Last Preset remains", "Cannot delete the last preset."
+                )
+            elif self.current_preset_idx >= 0:
+                del self.presets[self.current_preset_idx]
+                self.update_preset_combobox_items()
+            else:
+                QMessageBox.warning(
+                    self, "No Item Selected", "Please select an item to delete."
+                )
 
     def update_preset_combobox_items(self):
         self.preset_combobox.clear()
