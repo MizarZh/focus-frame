@@ -9,17 +9,14 @@ from PyQt5.QtWidgets import (
     QLabel,
     QCheckBox,
     QHBoxLayout,
-    QSpinBox,
     QDoubleSpinBox,
     QComboBox,
     QShortcut,
     QFileDialog,
     QMessageBox,
-    QLineEdit,
     QInputDialog,
-    QDialog,
 )
-from PyQt5.QtCore import Qt, QRect
+from PyQt5.QtCore import Qt, QRect, QSettings
 from overlay import OverlayWindow
 from PyQt5.QtGui import QKeySequence
 import json
@@ -39,9 +36,9 @@ class SettingsPanel(QMainWindow):
         self.setWindowTitle("Overlay Settings")
         self.setGeometry(50, 50, 400, 500)
 
-        self.presets_name = "Untitiled"
-        self.presets_file_path = None
-        self.presets = [self.init_presets("default")]
+        self.settings = QSettings("presets_path", "")
+        self.load_settings()
+
         self.current_preset_idx = 0
 
         layout = QVBoxLayout()
@@ -60,7 +57,7 @@ class SettingsPanel(QMainWindow):
 
         # Preset imports, saves and exports
         import_button = QPushButton("Import Presets")
-        import_button.clicked.connect(self.import_presets)
+        import_button.clicked.connect(self.import_presets_dialog)
         save_button = QPushButton("Save Presets")
         save_button.clicked.connect(self.save_presets)
         export_button = QPushButton("Export Presets")
@@ -248,6 +245,17 @@ class SettingsPanel(QMainWindow):
         }
         return pair
 
+    def load_settings(self):
+        self.presets_file_path = self.settings.value("presets_path")
+        self.import_presets()
+        if not hasattr(self, 'presets_name') or not hasattr(self, 'presets'):
+            self.reset_settings()
+
+    def reset_settings(self):
+        self.settings.setValue("presets_path", "")
+        self.presets_name = "Untitiled"
+        self.presets = [self.init_presets("default")]
+
     def rename_presets(self):
         new_preset_name, ok = QInputDialog.getText(
             self, "Rename presets", "Enter new presets name:"
@@ -257,23 +265,15 @@ class SettingsPanel(QMainWindow):
             self.update_presets_name_label()
 
     def import_presets(self):
-        options = QFileDialog.Options()
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Import Presets",
-            "",
-            "JSON Files (*.json);;All Files (*)",
-            options=options,
-        )
-        if file_path:
-            self.presets_file_path = file_path
+        if self.presets_file_path:
             try:
-                with open(file_path, "r") as file:
+                with open(self.presets_file_path, "r") as file:
                     imported_data = json.load(file)
                     validate_result = preset_validator(imported_data)
                     if validate_result:
                         self.presets_name = imported_data["presets_name"]
                         self.presets = imported_data["presets"]
+                        self.settings.setValue("presets_path", self.presets_file_path)
                         self.update_presets_name_label()
                         self.update_preset_combobox_items()
                         self.update_preset_combobox()
@@ -292,12 +292,31 @@ class SettingsPanel(QMainWindow):
                 QMessageBox.critical(
                     self, "Error", f"An error occurred while importing presets: {e}"
                 )
+        else:
+            self.reset_settings()
+
+    def import_presets_dialog(self):
+        options = QFileDialog.Options()
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Import Presets",
+            "",
+            "JSON Files (*.json);;All Files (*)",
+            options=options,
+        )
+        if file_path:
+            self.presets_file_path = file_path
+            self.import_presets()
 
     def save_presets(self):
         if self.presets_file_path:
             try:
                 with open(self.presets_file_path, "w") as file:
-                    json.dump(self.presets, file, indent=4)
+                    json.dump(
+                        {"presets_name": self.presets_name, "presets": self.presets},
+                        file,
+                        indent=4,
+                    )
                 QMessageBox.information(
                     self,
                     "Save Successful",
