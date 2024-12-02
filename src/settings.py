@@ -36,6 +36,7 @@ class SettingsPanel(QMainWindow):
         self.setWindowTitle("Overlay Settings")
         self.setGeometry(50, 50, 400, 500)
 
+        # Settings
         self.settings = QSettings("presets_path", "")
         self.load_settings()
 
@@ -46,7 +47,6 @@ class SettingsPanel(QMainWindow):
         # Presets settings
         presets_layout = QVBoxLayout()
         presets_layout.addWidget(QLabel("Presets Name:"))
-
         presets_name_layout = QHBoxLayout()
         self.current_presets_label = QLabel(self.presets_name)
         presets_name_layout.addWidget(self.current_presets_label)
@@ -180,7 +180,7 @@ class SettingsPanel(QMainWindow):
                 block_layout.addWidget(self.unit_labels[second])
                 layout.addLayout(block_layout)
 
-    def init_presets(self, name):
+    def get_default_presets(self, name):
         if self.overlay_window == None:
             return {
                 "preset_name": name,
@@ -247,14 +247,14 @@ class SettingsPanel(QMainWindow):
 
     def load_settings(self):
         self.presets_file_path = self.settings.value("presets_path")
-        self.import_presets()
+        self.import_presets(if_update=False)
         if not hasattr(self, 'presets_name') or not hasattr(self, 'presets'):
             self.reset_settings()
 
     def reset_settings(self):
         self.settings.setValue("presets_path", "")
         self.presets_name = "Untitiled"
-        self.presets = [self.init_presets("default")]
+        self.presets = [self.get_default_presets("default")]
 
     def rename_presets(self):
         new_preset_name, ok = QInputDialog.getText(
@@ -264,7 +264,7 @@ class SettingsPanel(QMainWindow):
             self.presets_name = new_preset_name
             self.update_presets_name_label()
 
-    def import_presets(self):
+    def import_presets(self, if_update=True):
         if self.presets_file_path:
             try:
                 with open(self.presets_file_path, "r") as file:
@@ -274,14 +274,15 @@ class SettingsPanel(QMainWindow):
                         self.presets_name = imported_data["presets_name"]
                         self.presets = imported_data["presets"]
                         self.settings.setValue("presets_path", self.presets_file_path)
-                        self.update_presets_name_label()
-                        self.update_preset_combobox_items()
-                        self.update_preset_combobox()
-                        QMessageBox.information(
-                            self,
-                            "Import Successful",
-                            "Presets have been imported successfully.",
-                        )
+                        if if_update:
+                            self.update_presets_name_label()
+                            self.update_preset_combobox_items()
+                            self.update_preset_combobox()
+                            QMessageBox.information(
+                                self,
+                                "Import Successful",
+                                "Presets have been imported successfully.",
+                            )
                     else:
                         QMessageBox.warning(
                             self,
@@ -372,7 +373,7 @@ class SettingsPanel(QMainWindow):
             if new_preset_name.strip() in self.get_preset_names():
                 QMessageBox.warning(self, "Duplicate Item", "This item already exists!")
             else:
-                self.presets.append(self.init_presets(new_preset_name.strip()))
+                self.presets.append(self.get_default_presets(new_preset_name.strip()))
                 self.update_preset_combobox_items()
 
     def rename_preset(self):
