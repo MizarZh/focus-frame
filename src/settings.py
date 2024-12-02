@@ -56,12 +56,15 @@ class SettingsPanel(QMainWindow):
         presets_layout.addLayout(presets_name_layout)
 
         # Preset imports, saves and exports
+        create_button = QPushButton("Create Presets")
+        create_button.clicked.connect(self.create_presets)
         import_button = QPushButton("Import Presets")
         import_button.clicked.connect(self.import_presets_dialog)
         save_button = QPushButton("Save Presets")
         save_button.clicked.connect(self.save_presets)
         export_button = QPushButton("Export Presets")
         export_button.clicked.connect(self.export_presets)
+        presets_layout.addWidget(create_button)
         presets_layout.addWidget(import_button)
         presets_layout.addWidget(save_button)
         presets_layout.addWidget(export_button)
@@ -263,6 +266,12 @@ class SettingsPanel(QMainWindow):
         if ok and new_preset_name.strip():
             self.presets_name = new_preset_name
             self.update_presets_name_label()
+
+    def create_presets(self):
+        self.reset_settings()
+        self.update_presets_name_label()
+        self.update_preset_combobox_items()
+        self.update_preset_combobox()
 
     def import_presets(self, if_update=True):
         if self.presets_file_path:
