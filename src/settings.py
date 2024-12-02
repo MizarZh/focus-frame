@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (
     QMessageBox,
     QLineEdit,
     QInputDialog,
-    QDialog
+    QDialog,
 )
 from PyQt5.QtCore import Qt, QRect
 from overlay import OverlayWindow
@@ -49,9 +49,14 @@ class SettingsPanel(QMainWindow):
         # Presets settings
         presets_layout = QVBoxLayout()
         presets_layout.addWidget(QLabel("Presets Name:"))
+
+        presets_name_layout = QHBoxLayout()
         self.current_presets_label = QLabel(self.presets_name)
-        presets_layout.addWidget(self.current_presets_label)
-        layout.addLayout(presets_layout)
+        presets_name_layout.addWidget(self.current_presets_label)
+        self.rename_presets_button = QPushButton("Rename")
+        self.rename_presets_button.clicked.connect(self.rename_presets)
+        presets_name_layout.addWidget(self.rename_presets_button)
+        presets_layout.addLayout(presets_name_layout)
 
         # Preset imports, saves and exports
         import_button = QPushButton("Import Presets")
@@ -63,6 +68,7 @@ class SettingsPanel(QMainWindow):
         presets_layout.addWidget(import_button)
         presets_layout.addWidget(save_button)
         presets_layout.addWidget(export_button)
+        layout.addLayout(presets_layout)
 
         # Preset Selection and Management
         preset_layout = QHBoxLayout()
@@ -242,6 +248,14 @@ class SettingsPanel(QMainWindow):
         }
         return pair
 
+    def rename_presets(self):
+        new_preset_name, ok = QInputDialog.getText(
+            self, "Rename presets", "Enter new presets name:"
+        )
+        if ok and new_preset_name.strip():
+            self.presets_name = new_preset_name
+            self.update_presets_name_label()
+
     def import_presets(self):
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(
@@ -260,6 +274,7 @@ class SettingsPanel(QMainWindow):
                     if validate_result:
                         self.presets_name = imported_data["presets_name"]
                         self.presets = imported_data["presets"]
+                        self.update_presets_name_label()
                         self.update_preset_combobox_items()
                         self.update_preset_combobox()
                         QMessageBox.information(
@@ -308,7 +323,7 @@ class SettingsPanel(QMainWindow):
             try:
                 with open(file_path, "w") as file:
                     json.dump(
-                        {"presets_name": "presets", "presets": self.presets},
+                        {"presets_name": self.presets_name, "presets": self.presets},
                         file,
                         indent=4,
                     )
@@ -355,13 +370,13 @@ class SettingsPanel(QMainWindow):
 
     def delete_preset(self):
         reply = QMessageBox.question(
-            self, 
-            "Delete confirmation", 
+            self,
+            "Delete confirmation",
             "Do you want to delete this preset?",
             QMessageBox.Yes | QMessageBox.No,
-            QMessageBox.No
+            QMessageBox.No,
         )
-        
+
         if reply == QMessageBox.Yes:
             if len(self.presets) <= 1:
                 QMessageBox.warning(
@@ -374,6 +389,9 @@ class SettingsPanel(QMainWindow):
                 QMessageBox.warning(
                     self, "No Item Selected", "Please select an item to delete."
                 )
+
+    def update_presets_name_label(self):
+        self.current_presets_label.setText(self.presets_name)
 
     def update_preset_combobox_items(self):
         self.preset_combobox.clear()
