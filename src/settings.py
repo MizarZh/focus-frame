@@ -38,38 +38,38 @@ class SettingsPanel(QMainWindow):
         self.setGeometry(50, 50, 400, 500)
 
         # Settings
-        self.settings = QSettings("presets_path", "")
+        self.settings = QSettings("preset_collection_path", "")
         self.load_settings()
 
         self.current_preset_idx = 0
 
         layout = QVBoxLayout()
 
-        # Presets settings
-        presets_layout = QVBoxLayout()
-        presets_layout.addWidget(QLabel("Presets Name:"))
-        presets_name_layout = QHBoxLayout()
-        self.current_presets_label = QLabel(self.presets_name)
-        presets_name_layout.addWidget(self.current_presets_label)
-        self.rename_presets_button = QPushButton("Rename")
-        self.rename_presets_button.clicked.connect(self.rename_presets)
-        presets_name_layout.addWidget(self.rename_presets_button)
-        presets_layout.addLayout(presets_name_layout)
+        # Preset Collection settings
+        preset_collection_layout = QVBoxLayout()
+        preset_collection_layout.addWidget(QLabel("Preset Collection Name:"))
+        preset_collection_name_layout = QHBoxLayout()
+        self.current_preset_collection_label = QLabel(self.preset_collection_name)
+        preset_collection_name_layout.addWidget(self.current_preset_collection_label)
+        self.rename_preset_collection_button = QPushButton("Rename")
+        self.rename_preset_collection_button.clicked.connect(self.rename_preset_collection)
+        preset_collection_name_layout.addWidget(self.rename_preset_collection_button)
+        preset_collection_layout.addLayout(preset_collection_name_layout)
 
         # Preset imports, saves and exports
-        create_button = QPushButton("Create Presets")
-        create_button.clicked.connect(self.create_presets)
-        import_button = QPushButton("Import Presets")
-        import_button.clicked.connect(self.import_presets_dialog)
-        save_button = QPushButton("Save Presets")
-        save_button.clicked.connect(self.save_presets)
-        export_button = QPushButton("Export Presets")
-        export_button.clicked.connect(self.export_presets)
-        presets_layout.addWidget(create_button)
-        presets_layout.addWidget(import_button)
-        presets_layout.addWidget(save_button)
-        presets_layout.addWidget(export_button)
-        layout.addLayout(presets_layout)
+        create_button = QPushButton("Create Preset Collection")
+        create_button.clicked.connect(self.create_preset_collection)
+        import_button = QPushButton("Import Preset Collection")
+        import_button.clicked.connect(self.import_preset_collection_dialog)
+        save_button = QPushButton("Save Preset Collection")
+        save_button.clicked.connect(self.save_preset_collection)
+        export_button = QPushButton("Export Preset Collection")
+        export_button.clicked.connect(self.export_preset_collection)
+        preset_collection_layout.addWidget(create_button)
+        preset_collection_layout.addWidget(import_button)
+        preset_collection_layout.addWidget(save_button)
+        preset_collection_layout.addWidget(export_button)
+        layout.addLayout(preset_collection_layout)
 
         # Preset Selection and Management
         preset_layout = QHBoxLayout()
@@ -184,7 +184,7 @@ class SettingsPanel(QMainWindow):
                 block_layout.addWidget(self.unit_labels[second])
                 layout.addLayout(block_layout)
 
-    def get_default_presets(self, name):
+    def get_default_preset_collection(self, name):
         if self.overlay_window == None:
             return {
                 "preset_name": name,
@@ -252,102 +252,102 @@ class SettingsPanel(QMainWindow):
         return pair
 
     def load_settings(self):
-        self.import_presets(if_update=False)
-        if not hasattr(self, "presets_name") or not hasattr(self, "presets"):
+        self.import_preset_collection(if_update=False)
+        if not hasattr(self, "preset_collection_name") or not hasattr(self, "presets"):
             self.reset_settings()
 
     def reset_settings(self):
-        self.settings.setValue("presets_path", "")
-        self.presets_name = "Untitiled"
-        self.presets = [self.get_default_presets("default")]
+        self.settings.setValue("preset_collection_path", "")
+        self.preset_collection_name = "Untitiled"
+        self.presets = [self.get_default_preset_collection("default")]
 
-    def rename_presets(self):
+    def rename_preset_collection(self):
         new_preset_name, ok = QInputDialog.getText(
-            self, "Rename presets", "Enter new presets name:"
+            self, "Rename Preset Collection", "Enter new preset collection name:"
         )
         if ok and new_preset_name.strip():
-            self.presets_name = new_preset_name
-            self.update_presets_name_label()
+            self.preset_collection_name = new_preset_name
+            self.update_preset_collection_name_label()
 
-    def create_presets(self):
+    def create_preset_collection(self):
         self.reset_settings()
-        self.update_presets_name_label()
-        self.update_presets_selection_combobox()
+        self.update_preset_collection_name_label()
+        self.update_preset_selection_combobox()
         self.update_preset_combobox()
         self.update_color()
 
-    def import_presets(self, if_update=True):
-        if self.settings.value("presets_path"):
+    def import_preset_collection(self, if_update=True):
+        if self.settings.value("preset_collection_path"):
             try:
-                with open(self.settings.value("presets_path"), "r") as file:
+                with open(self.settings.value("preset_collection_path"), "r") as file:
                     imported_data = json.load(file)
                     validate_result = preset_validator(imported_data)
                     if validate_result:
-                        self.presets_name = imported_data["presets_name"]
+                        self.preset_collection_name = imported_data["preset_collection_name"]
                         self.presets = imported_data["presets"]
                         if if_update:
-                            self.update_presets_name_label()
-                            self.update_presets_selection_combobox()
+                            self.update_preset_collection_name_label()
+                            self.update_preset_selection_combobox()
                             self.update_preset_combobox()
                             self.update_color()
                             QMessageBox.information(
                                 self,
                                 "Import Successful",
-                                "Presets have been imported successfully.",
+                                "Preset collection have been imported successfully.",
                             )
                     else:
                         QMessageBox.warning(
                             self,
                             "Import Failed",
-                            "The selected file does not contain valid presets.",
+                            "The selected file does not contain valid preset collection.",
                         )
             except Exception as e:
                 QMessageBox.critical(
-                    self, "Error", f"An error occurred while importing presets: {e}"
+                    self, "Error", f"An error occurred while importing preset collection: {e}"
                 )
         else:
             self.reset_settings()
 
-    def import_presets_dialog(self):
+    def import_preset_collection_dialog(self):
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getOpenFileName(
             self,
-            "Import Presets",
+            "Import Preset Collection",
             "",
             "JSON Files (*.json);;All Files (*)",
             options=options,
         )
         if file_path:
-            self.settings.setValue("presets_path", file_path)
-            self.import_presets()
+            self.settings.setValue("preset_collection_path", file_path)
+            self.import_preset_collection()
 
-    def save_presets(self):
-        if self.settings.value("presets_path"):
+    def save_preset_collection(self):
+        if self.settings.value("preset_collection_path"):
             try:
-                with open(self.settings.value("presets_path"), "w") as file:
+                with open(self.settings.value("preset_collection_path"), "w") as file:
                     json.dump(
-                        {"presets_name": self.presets_name, "presets": self.presets},
+                        {"preset_collection_name": self.preset_collection_name, "presets": self.presets},
                         file,
                         indent=4,
                     )
                 QMessageBox.information(
                     self,
                     "Save Successful",
-                    "Presets have been saved successfully.",
+                    "Preset collection have been saved successfully.",
                 )
             except Exception as e:
                 QMessageBox.critical(
-                    self, "Error", f"An error occurred while saving presets: {e}"
+                    self, "Error", f"An error occurred while saving preset collection: {e}"
                 )
         else:
-            self.export_presets()
+            self.export_preset_collection()
 
-    def export_presets(self):
+    def export_preset_collection(self):
         options = QFileDialog.Options()
         file_path, _ = QFileDialog.getSaveFileName(
             self,
-            "Export Presets",
-            "{}.json".format(self.presets_name),
+            "Export Preset Collection",
+            "{}.json".format(self.preset_collection_name),
             "JSON Files (*.json);;All Files (*)",
             options=options,
         )
@@ -355,18 +355,18 @@ class SettingsPanel(QMainWindow):
             try:
                 with open(file_path, "w") as file:
                     json.dump(
-                        {"presets_name": self.presets_name, "presets": self.presets},
+                        {"preset_collection_name": self.preset_collection_name, "presets": self.presets},
                         file,
                         indent=4,
                     )
                 QMessageBox.information(
                     self,
                     "Export Successful",
-                    "Presets have been exported successfully.",
+                    "Preset collection have been exported successfully.",
                 )
             except Exception as e:
                 QMessageBox.critical(
-                    self, "Error", f"An error occurred while exporting presets: {e}"
+                    self, "Error", f"An error occurred while exporting preset collection: {e}"
                 )
 
     def change_preset(self, index):
@@ -385,8 +385,8 @@ class SettingsPanel(QMainWindow):
             if new_preset_name.strip() in self.get_preset_names():
                 QMessageBox.warning(self, "Duplicate Item", "This item already exists!")
             else:
-                self.presets.append(self.get_default_presets(new_preset_name.strip()))
-                self.update_presets_selection_combobox()
+                self.presets.append(self.get_default_preset_collection(new_preset_name.strip()))
+                self.update_preset_selection_combobox()
 
     def rename_preset(self):
         new_preset_name, ok = QInputDialog.getText(
@@ -398,7 +398,7 @@ class SettingsPanel(QMainWindow):
                 QMessageBox.warning(self, "Duplicate Item", "This item already exists!")
             else:
                 self.presets[self.current_preset_idx]["preset_name"] = new_preset_name
-                self.update_presets_selection_combobox()
+                self.update_preset_selection_combobox()
 
     def delete_preset(self):
         reply = QMessageBox.question(
@@ -416,16 +416,16 @@ class SettingsPanel(QMainWindow):
                 )
             elif self.current_preset_idx >= 0:
                 del self.presets[self.current_preset_idx]
-                self.update_presets_selection_combobox()
+                self.update_preset_selection_combobox()
             else:
                 QMessageBox.warning(
                     self, "No Item Selected", "Please select an item to delete."
                 )
 
-    def update_presets_name_label(self):
-        self.current_presets_label.setText(self.presets_name)
+    def update_preset_collection_name_label(self):
+        self.current_preset_collection_label.setText(self.preset_collection_name)
 
-    def update_presets_selection_combobox(self):
+    def update_preset_selection_combobox(self):
         self.preset_combobox.clear()
         self.preset_combobox.addItems(self.get_preset_names())
 
