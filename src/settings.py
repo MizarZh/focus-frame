@@ -21,6 +21,7 @@ from overlay import OverlayWindow
 from PyQt5.QtGui import QKeySequence
 import json
 from validator import preset_validator
+from utils import hex_to_color
 
 
 class SettingsPanel(QMainWindow):
@@ -194,6 +195,7 @@ class SettingsPanel(QMainWindow):
                 "h": 400,
                 "xy_abs": True,
                 "wh_abs": True,
+                "color": "#000000",
             }
 
         else:
@@ -207,6 +209,7 @@ class SettingsPanel(QMainWindow):
                 "h": screen.height() // 2,
                 "xy_abs": True,
                 "wh_abs": True,
+                "color": "#000000",
             }
 
     def init_block_spinbox_value(self):
@@ -249,9 +252,8 @@ class SettingsPanel(QMainWindow):
         return pair
 
     def load_settings(self):
-        self.presets_file_path = self.settings.value("presets_path")
         self.import_presets(if_update=False)
-        if not hasattr(self, 'presets_name') or not hasattr(self, 'presets'):
+        if not hasattr(self, "presets_name") or not hasattr(self, "presets"):
             self.reset_settings()
 
     def reset_settings(self):
@@ -270,23 +272,24 @@ class SettingsPanel(QMainWindow):
     def create_presets(self):
         self.reset_settings()
         self.update_presets_name_label()
-        self.update_preset_combobox_items()
+        self.update_presets_selection_combobox()
         self.update_preset_combobox()
+        self.update_color()
 
     def import_presets(self, if_update=True):
-        if self.presets_file_path:
+        if self.settings.value("presets_path"):
             try:
-                with open(self.presets_file_path, "r") as file:
+                with open(self.settings.value("presets_path"), "r") as file:
                     imported_data = json.load(file)
                     validate_result = preset_validator(imported_data)
                     if validate_result:
                         self.presets_name = imported_data["presets_name"]
                         self.presets = imported_data["presets"]
-                        self.settings.setValue("presets_path", self.presets_file_path)
                         if if_update:
                             self.update_presets_name_label()
-                            self.update_preset_combobox_items()
+                            self.update_presets_selection_combobox()
                             self.update_preset_combobox()
+                            self.update_color()
                             QMessageBox.information(
                                 self,
                                 "Import Successful",
@@ -315,13 +318,13 @@ class SettingsPanel(QMainWindow):
             options=options,
         )
         if file_path:
-            self.presets_file_path = file_path
+            self.settings.setValue("presets_path", file_path)
             self.import_presets()
 
     def save_presets(self):
-        if self.presets_file_path:
+        if self.settings.value("presets_path"):
             try:
-                with open(self.presets_file_path, "w") as file:
+                with open(self.settings.value("presets_path"), "w") as file:
                     json.dump(
                         {"presets_name": self.presets_name, "presets": self.presets},
                         file,
@@ -344,7 +347,7 @@ class SettingsPanel(QMainWindow):
         file_path, _ = QFileDialog.getSaveFileName(
             self,
             "Export Presets",
-            "presets.json",
+            "{}.json".format(self.presets_name),
             "JSON Files (*.json);;All Files (*)",
             options=options,
         )
@@ -383,7 +386,7 @@ class SettingsPanel(QMainWindow):
                 QMessageBox.warning(self, "Duplicate Item", "This item already exists!")
             else:
                 self.presets.append(self.get_default_presets(new_preset_name.strip()))
-                self.update_preset_combobox_items()
+                self.update_presets_selection_combobox()
 
     def rename_preset(self):
         new_preset_name, ok = QInputDialog.getText(
@@ -395,7 +398,7 @@ class SettingsPanel(QMainWindow):
                 QMessageBox.warning(self, "Duplicate Item", "This item already exists!")
             else:
                 self.presets[self.current_preset_idx]["preset_name"] = new_preset_name
-                self.update_preset_combobox_items()
+                self.update_presets_selection_combobox()
 
     def delete_preset(self):
         reply = QMessageBox.question(
@@ -413,7 +416,7 @@ class SettingsPanel(QMainWindow):
                 )
             elif self.current_preset_idx >= 0:
                 del self.presets[self.current_preset_idx]
-                self.update_preset_combobox_items()
+                self.update_presets_selection_combobox()
             else:
                 QMessageBox.warning(
                     self, "No Item Selected", "Please select an item to delete."
@@ -422,7 +425,7 @@ class SettingsPanel(QMainWindow):
     def update_presets_name_label(self):
         self.current_presets_label.setText(self.presets_name)
 
-    def update_preset_combobox_items(self):
+    def update_presets_selection_combobox(self):
         self.preset_combobox.clear()
         self.preset_combobox.addItems(self.get_preset_names())
 
@@ -534,10 +537,18 @@ class SettingsPanel(QMainWindow):
             self.overlay_window.show_focus_block = state == Qt.Checked
             self.overlay_window.update()
 
+    def update_color(self):
+        if self.overlay_window:
+            color = hex_to_color(self.presets[self.current_preset_idx]["color"])
+            if color.isValid():
+                color.setAlpha(self.presets[self.current_preset_idx]["alpha"])
+                self.overlay_window.overlay_color = color
+                self.overlay_window.update()
+
     def pick_color(self):
         if self.overlay_window:
             color = QColorDialog.getColor(self.overlay_window.overlay_color)
-            self.presets[self.current_preset_idx]["color"] = color
+            self.presets[self.current_preset_idx]["color"] = color.name()
             if color.isValid():
                 color.setAlpha(self.presets[self.current_preset_idx]["alpha"])
                 self.overlay_window.overlay_color = color
