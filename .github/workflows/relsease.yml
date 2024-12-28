@@ -48,11 +48,11 @@ jobs:
         run: |
           mkdir -p build-output
           if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            mv dist/focus-frame.exe build-output/focus-frame-windows-${{ env.VERSION }}.exe
+            mv dist/main.exe build-output/focus-frame-windows-${{ env.VERSION }}.exe
           elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            mv dist/focus-frame build-output/focus-frame-macos-${{ env.VERSION }}
+            mv dist/main build-output/focus-frame-macos-${{ env.VERSION }}
           else
-            mv dist/focus-frame build-output/focus-frame-linux-${{ env.VERSION }}
+            mv dist/main build-output/focus-frame-linux-${{ env.VERSION }}
           fi
 
       # Step 7: Upload artifacts to GitHub Actions for later steps
