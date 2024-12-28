@@ -73,22 +73,24 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # Step 1: Check out the repository
       - name: Check out code
         uses: actions/checkout@v3
 
-      # Step 2: Download all artifacts
       - name: Download artifacts
         uses: actions/download-artifact@v3
         with:
           path: release-output
 
-      - name: Release with Notes
-        uses: softprops/action-gh-release@v1
+      - name: Set up GitHub CLI
+        uses: actions/setup-gh@v2
         with:
-          files: |
-            release-output/build-output/focus-frame-windows-${{ github.ref_name }}.exe
-            release-output/build-output/focus-frame-macos-${{ github.ref_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create GitHub Release
+        run: |
+          gh release create ${{ github.ref_name }} \
+            --title "Release ${{ github.ref_name }}" \
+            --notes "Automatically generated release from GitHub Actions." \
+            release-output/build-output/focus-frame-windows-${{ github.ref_name }}.exe \
+            release-output/build-output/focus-frame-macos-${{ github.ref_name }} \
             release-output/build-output/focus-frame-linux-${{ github.ref_name }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
