@@ -37,7 +37,7 @@ jobs:
       # Step 5: Build the executable with PyInstaller
       - name: Build executable
         run: |
-          pyinstaller --onefile --windowed --name focus-frame src/main.py 
+          pyinstaller --onefile --windowed --name focus-frame src/main.py
         env:
           # Necessary for macOS and Linux builds to specify windowed mode
           DISPLAY: ':99.0'
@@ -60,7 +60,7 @@ jobs:
           Move-Item -Path dist\focus-frame.exe -Destination build-output\focus-frame-windows-${{ env.VERSION }}.exe
         shell: powershell
         if: ${{ matrix.os == 'windows-latest' }}
-        
+
       # Step 7: Upload artifacts to GitHub Actions for later steps
       - name: Upload artifact
         uses: actions/upload-artifact@v3
@@ -84,11 +84,11 @@ jobs:
           path: release-output
 
       - name: Release with Notes
-              uses: softprops/action-gh-release@v1
-              with:
-                files: |
-                  release-output/build-output/focus-frame-windows-${{ github.ref_name }}.exe
-                  release-output/build-output/focus-frame-macos-${{ github.ref_name }}
-                  release-output/build-output/focus-frame-linux-${{ github.ref_name }}
-              env:
-                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            release-output/build-output/focus-frame-windows-${{ github.ref_name }}.exe
+            release-output/build-output/focus-frame-macos-${{ github.ref_name }}
+            release-output/build-output/focus-frame-linux-${{ github.ref_name }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
