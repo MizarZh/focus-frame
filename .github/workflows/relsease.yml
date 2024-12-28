@@ -21,7 +21,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: 3.9  # Adjust Python version as needed
+          python-version: 3.9 # Adjust Python version as needed
 
       # Step 3: Install dependencies
       - name: Install dependencies
@@ -37,24 +37,30 @@ jobs:
       # Step 5: Build the executable with PyInstaller
       - name: Build executable
         run: |
-          pyinstaller --onefile --windowed src/main.py
+          pyinstaller --onefile --windowed --name focus-frame src/main.py 
         env:
           # Necessary for macOS and Linux builds to specify windowed mode
-          DISPLAY: ":99.0"
+          DISPLAY: ':99.0'
 
-      # Step 6: Archive the output for uploading
-      - name: Archive build artifact
-        if: success()
+      # Step 6: Rename and archive the output for each platform
+      - name: Rename and Archive Output
         run: |
           mkdir -p build-output
-          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
-            mv dist/main.exe build-output/focus-frame-windows-${{ env.VERSION }}.exe
-          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
-            mv dist/main build-output/focus-frame-macos-${{ env.VERSION }}
-          else
-            mv dist/main build-output/focus-frame-linux-${{ env.VERSION }}
+          if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
+            mv dist/focus-frame-${{ env.VERSION }} build-output/focus-frame-linux-${{ env.VERSION }}
+          elif [ "${{ matrix.os }}" == "macos-latest" ]; then
+            mv dist/focus-frame-${{ env.VERSION }} build-output/focus-frame-macos-${{ env.VERSION }}
           fi
+        shell: bash
+        if: ${{ matrix.os != 'windows-latest' }}
 
+      - name: Rename and Archive Output (Windows)
+        run: |
+          New-Item -Path build-output -ItemType Directory -Force
+          Move-Item -Path dist\focus-frame-${{ env.VERSION }}.exe -Destination build-output\focus-frame-windows-${{ env.VERSION }}.exe
+        shell: powershell
+        if: ${{ matrix.os == 'windows-latest' }}
+        
       # Step 7: Upload artifacts to GitHub Actions for later steps
       - name: Upload artifact
         uses: actions/upload-artifact@v3
