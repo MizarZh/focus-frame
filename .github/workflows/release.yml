@@ -5,7 +5,6 @@ on:
     tags:
       - 'v*'
 
-# Add permissions block
 permissions:
   contents: write
   packages: write
@@ -45,30 +44,42 @@ jobs:
       - name: Build with PyInstaller
         run: pyinstaller --onefile --windowed --name focus-frame src/main.py
 
+      - name: Rename binary for upload
+        shell: bash
+        run: |
+          cd dist
+          if [ "${{ matrix.os }}" == "windows-latest" ]; then
+            mv focus-frame.exe ../${{ matrix.asset_name }}
+          else
+            mv focus-frame ../${{ matrix.asset_name }}
+          fi
+          cd ..
+
       - name: Upload artifact
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.asset_name }}
-          path: ${{ matrix.asset_path }}
+          path: ${{ matrix.asset_name }}
 
   release:
     needs: build
     runs-on: ubuntu-latest
-    # Add permissions to release job specifically
     permissions:
       contents: write
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v3
+        with:
+          path: dist
 
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
         with:
           files: |
-            focus-frame-windows-${{ github.ref_name }}.exe/focus-frame.exe
-            focus-frame-macos-${{ github.ref_name }}/focus-frame
-            focus-frame-linux-${{ github.ref_name }}/focus-frame
+            dist/focus-frame-windows-${{ github.ref_name }}.exe/focus-frame-windows-${{ github.ref_name }}.exe
+            dist/focus-frame-macos-${{ github.ref_name }}/focus-frame-macos-${{ github.ref_name }}
+            dist/focus-frame-linux-${{ github.ref_name }}/focus-frame-linux-${{ github.ref_name }}
           name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
