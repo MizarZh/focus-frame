@@ -1,0 +1,111 @@
+name: Build and Release PyInstaller Executables
+
+on:
+  push:
+    tags:
+      - '*'
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+
+    steps:
+      # Step 1: Check out the repository
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: 3.9  # Adjust Python version as needed
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyinstaller
+
+      # Step 4: Extract version from tag
+      - name: Extract version
+        id: version
+        run: echo "VERSION=${GITHUB_REF_NAME}" >> $GITHUB_ENV
+
+      # Step 5: Build the executable with PyInstaller
+      - name: Build executable
+        run: |
+          pyinstaller --onefile --windowed src/main.py
+        env:
+          # Necessary for macOS and Linux builds to specify windowed mode
+          DISPLAY: ":99.0"
+
+      # Step 6: Archive the output for uploading
+      - name: Archive build artifact
+        if: success()
+        run: |
+          mkdir -p build-output
+          if [[ "${{ matrix.os }}" == "windows-latest" ]]; then
+            mv dist/focus-frame.exe build-output/focus-frame-windows-${{ env.VERSION }}.exe
+          elif [[ "${{ matrix.os }}" == "macos-latest" ]]; then
+            mv dist/focus-frame build-output/focus-frame-macos-${{ env.VERSION }}
+          else
+            mv dist/focus-frame build-output/focus-frame-linux-${{ env.VERSION }}
+          fi
+
+      # Step 7: Upload artifacts to GitHub Actions for later steps
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: ${{ matrix.os }}-build
+          path: build-output/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository
+      - name: Check out code
+        uses: actions/checkout@v3
+
+      # Step 2: Download all artifacts
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: release-output
+
+      # Step 3: Create a release and upload artifacts
+      - name: Create Release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      - name: Upload to Release (Windows)
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: release-output/build-output/focus-frame-windows-${{ github.ref_name }}.exe
+          asset_name: focus-frame-windows-${{ github.ref_name }}.exe
+          asset_content_type: application/octet-stream
+
+      - name: Upload to Release (macOS)
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: release-output/build-output/focus-frame-macos-${{ github.ref_name }}
+          asset_name: focus-frame-macos-${{ github.ref_name }}
+          asset_content_type: application/octet-stream
+
+      - name: Upload to Release (Linux)
+        uses: actions/upload-release-asset@v1
+        with:
+          upload_url: ${{ github.event.release.upload_url }}
+          asset_path: release-output/build-output/focus-frame-linux-${{ github.ref_name }}
+          asset_name: focus-frame-linux-${{ github.ref_name }}
+          asset_content_type: application/octet-stream
