@@ -5,6 +5,11 @@ on:
     tags:
       - 'v*'
 
+# Add permissions block
+permissions:
+  contents: write
+  packages: write
+
 jobs:
   build:
     name: Build ${{ matrix.os }}
@@ -49,6 +54,9 @@ jobs:
   release:
     needs: build
     runs-on: ubuntu-latest
+    # Add permissions to release job specifically
+    permissions:
+      contents: write
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v3
