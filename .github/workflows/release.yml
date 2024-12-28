@@ -83,12 +83,12 @@ jobs:
         with:
           path: release-output
 
-    - name: Release with Notes
-            uses: softprops/action-gh-release@v1
-            with:
-              files: |
-                release-output/build-output/focus-frame-windows-${{ github.ref_name }}.exe
-                release-output/build-output/focus-frame-macos-${{ github.ref_name }}
-                release-output/build-output/focus-frame-linux-${{ github.ref_name }}
-            env:
-              GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Release with Notes
+              uses: softprops/action-gh-release@v1
+              with:
+                files: |
+                  release-output/build-output/focus-frame-windows-${{ github.ref_name }}.exe
+                  release-output/build-output/focus-frame-macos-${{ github.ref_name }}
+                  release-output/build-output/focus-frame-linux-${{ github.ref_name }}
+              env:
+                GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
