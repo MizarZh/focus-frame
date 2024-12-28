@@ -47,9 +47,9 @@ jobs:
         run: |
           mkdir -p build-output
           if [ "${{ matrix.os }}" == "ubuntu-latest" ]; then
-            mv dist/focus-frame-${{ env.VERSION }} build-output/focus-frame-linux-${{ env.VERSION }}
+            mv dist/focus-frame build-output/focus-frame-linux-${{ env.VERSION }}
           elif [ "${{ matrix.os }}" == "macos-latest" ]; then
-            mv dist/focus-frame-${{ env.VERSION }} build-output/focus-frame-macos-${{ env.VERSION }}
+            mv dist/focus-frame build-output/focus-frame-macos-${{ env.VERSION }}
           fi
         shell: bash
         if: ${{ matrix.os != 'windows-latest' }}
@@ -57,7 +57,7 @@ jobs:
       - name: Rename and Archive Output (Windows)
         run: |
           New-Item -Path build-output -ItemType Directory -Force
-          Move-Item -Path dist\focus-frame-${{ env.VERSION }}.exe -Destination build-output\focus-frame-windows-${{ env.VERSION }}.exe
+          Move-Item -Path dist\focus-frame.exe -Destination build-output\focus-frame-windows-${{ env.VERSION }}.exe
         shell: powershell
         if: ${{ matrix.os == 'windows-latest' }}
         
